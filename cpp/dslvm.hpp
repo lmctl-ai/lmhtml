@@ -1,5 +1,5 @@
 // cpp-dsl-sdk: the C++ runtime for lmscript `_dsl_` bytecode. Header-only, C++17, standard library only.
-// Single source of truth: github.com/lmctlhq/cpp-dsl-sdk/include/dslvm.hpp (hosts vendor it by pinned sha256, see README).
+// Single source of truth: github.com/lmctl-ai/cpp-dsl-sdk/include/dslvm.hpp (hosts vendor it by pinned sha256, see README).
 //
 // Public API (everything else in this header is an implementation detail):
 //   dslvm::Error                         exception for load, verify and run-time failures: what() names the problem; code is one of
@@ -12,7 +12,7 @@
 //                                        keyed by canonical signature, distinct parameter tuples overload a name, and duplicate parameter
 //                                        tuples are refused; signatures() lists the canonical strings `lmscript --dsl-signatures SCHEMA` prints, so a
 //                                        host test diffs registry and schema (spec v4 S0, a consistency check between two sources of truth,
-//                                        not a run-time defense: R33/R34, the VM checks nothing at call time)
+//                                        not a run-time defense: the VM checks nothing at call time)
 //   dslvm::Context                       the live objects of one run: set(name, pointer)
 //   dslvm::Program::load(bytes, schema, registry)  parses, binds and verifies; throws before anything runs. The Program keeps
 //                                        pointers to entries in that Registry: keep the same Registry alive and unchanged until
@@ -20,7 +20,7 @@
 //   dslvm::Program::run(context, registry)         executes the chunk once; pass the same unchanged Registry used by load()
 //                                        (the argument remains in the public host API); throws dslvm::Error on a run-time failure
 //   dslvm::Program::RunStats             optional dispatch count for host measurements; pass a pointer to run(), never a limit
-//   dslvm::report_ok / report_error / report_app_failure   the standard one-line JSON result on stdout (spec v4 D7, R26) and the
+//   dslvm::report_ok / report_error / report_app_failure   the standard one-line JSON result on stdout and the
 //                                        exit-code convention 2 compile (lmscript) / 3 host (load or run) / 4 application
 //   dslvm::VERSION                       the bytecode format version this SDK reads (and nothing else: no backward compatibility)
 //   dslvm::sha256 / hex / read_file      helpers the hosts use for the schema binding and files
@@ -34,15 +34,15 @@
 // Opcodes: enum Op below (PUSH_INT carries an i64, PUSH_STR a u32 constant index, LOAD_CTX a u16 context index, CALL_FN and
 // CALL_METHOD a u16 import index + u8 argc). FOR_RANGE carries counter/end local slots and an exit displacement; FOR_NEXT carries
 // the hidden end slot and a back displacement. WHILE_BEGIN marks a paired loop head, WHILE_TEST branches to its exit on false,
-// and LOOP_BACK returns only to that paired head. Int arithmetic is 64-bit two's complement with wraparound (no overflow trap, R34);
-// division and remainder by zero are run-time errors. The living specification is lmctl-mono
-// lmscript/durable-memory/design/dsl-language.md; the compiler is lmscript's dsl.ts.
+// and LOOP_BACK returns only to that paired head. Int arithmetic is 64-bit two's complement with wraparound (no overflow trap);
+// division and remainder by zero are run-time errors. The language is defined by the lmscript compiler
+// (_dsl_ blocks, npm package @lmctl-ai/lmctl); this header implements the bytecode that compiler emits.
 //
 // Guarantees of load(): wrong magic, other version (including v3), schema-hash mismatch, truncation, trailing bytes, unknown
 // constant tags, undecodable instructions, out-of-range constants/locals/imports/context indices, jumps that do not land on an
 // instruction start or go backwards except for paired structured loops, missing HALT, context declarations
 // and import signatures the registry does not provide are all refused with a message. The language and the VM impose no
-// memory or time limits (operator decision, 2026-10-18): there is no stack cap, no locals cap and no string-size cap.
+// memory or time limits: there is no stack cap, no locals cap and no string-size cap.
 #pragma once
 #include <algorithm>
 #include <cstdint>
@@ -64,8 +64,15 @@ namespace dslvm {
 
 struct Error : std::runtime_error {
   std::string code;
-  explicit Error(const std::string& m) : std::runtime_error(m), code("RUN_HOST") {}   // a plain message is what host closures throw
-  Error(const std::string& c, const std::string& m) : std::runtime_error(m), code(c) {}
+  std::string message;
+  bool has_location = false;
+  bool has_column = false;
+  uint32_t line = 0;
+  uint16_t column = 0;
+  explicit Error(const std::string& m) : std::runtime_error(m), code("RUN_HOST"), message(m) {}   // a plain message is what host closures throw
+  Error(const std::string& c, const std::string& m) : std::runtime_error(m), code(c), message(m) {}
+  const char* what() const noexcept override { return message.c_str(); }
+  void locate(uint32_t l, uint16_t c) { if (has_location || l == 0) return; has_location = true; has_column = c != 0; line = l; column = c; message = "dsl line " + std::to_string(l) + (has_column ? ":" + std::to_string(c) : "") + ": " + message; }
 };
 
 // ---- SHA-256 (FIPS 180-4), used only to bind the bytecode to the exact schema bytes ----
@@ -196,12 +203,14 @@ inline std::string json_escape(const std::string& s) {
   for (unsigned char c : s) { switch (c) { case '"': out += "\\\""; break; case '\\': out += "\\\\"; break; case '\n': out += "\\n"; break; case '\r': out += "\\r"; break; case '\t': out += "\\t"; break; default: if (c < 0x20) { char b[8]; std::snprintf(b, sizeof b, "\\u%04x", c); out += b; } else out += char(c); } }
   return out + "\"";
 }
-// ---- The standard result line (spec v4 D7, R26): exactly one JSON line on stdout; the return value is the process exit code. ----
+// ---- The standard result line: exactly one JSON line on stdout; the return value is the process exit code. ----
 // `result_json` must already be JSON text ("null", "42", json_escape(text), an object...).
 inline int report_ok(const std::string& result_json = "null") { std::cout << "{\"ok\": true, \"result\": " << result_json << "}" << std::endl; return 0; }
 // phase is "load" or "run" (compile failures are lmscript's, exit 2); exit 4 for APP_FAIL, else 3.
 inline int report_error(const std::string& phase, const Error& e) {
-  std::cout << "{\"ok\": false, \"phase\": " << json_escape(phase) << ", \"code\": " << json_escape(e.code) << ", \"message\": " << json_escape(e.what()) << "}" << std::endl;
+  std::cout << "{\"ok\": false, \"phase\": " << json_escape(phase) << ", \"code\": " << json_escape(e.code) << ", \"message\": " << json_escape(e.what());
+  if (e.has_location) { std::cout << ", \"line\": " << e.line; if (e.has_column) std::cout << ", \"column\": " << e.column; }
+  std::cout << "}" << std::endl;
   return e.code == "APP_FAIL" ? 4 : 3;
 }
 inline int report_app_failure(const std::string& message) { return report_error("app", Error("APP_FAIL", message)); }
@@ -359,9 +368,11 @@ class Program {
       return static_cast<int64_t>(x);
     };
     while (true) {
-      uint8_t op = r.u8();
-      if (stats) ++stats->instructions;
-      switch (op) {
+      const size_t fault_pc = r.pos();
+      try {
+        uint8_t op = r.u8();
+        if (stats) ++stats->instructions;
+        switch (op) {
         case PUSH_INT: push(Value::integer(r.i64())); break;
         case PUSH_FLOAT: push(Value::real(r.f64())); break;
         case PUSH_STR: push(Value::string(consts_[r.u32()])); break;
@@ -435,7 +446,7 @@ class Program {
           push(Value::string(a.s + b.s)); break;
         }
         case I2S: { Value a = pop(); if (a.kind != Value::INT) throw Error(std::string("str(int) applied to ") + a.kind_name()); push(Value::string(std::to_string(a.i))); break; }
-        case F2S: {  // %.15g: the same text poc-numpy prints; deterministic across hosts
+        case F2S: {  // %.15g: deterministic across hosts
           Value a = pop(); if (a.kind != Value::FLOAT) throw Error(std::string("str(float) applied to ") + a.kind_name());
           char buf[64]; std::snprintf(buf, sizeof buf, "%.15g", a.f); push(Value::string(buf)); break;
         }
@@ -462,7 +473,7 @@ class Program {
             case MATH_MAX_I: { Value b = pop(), a = pop(); push(Value::integer(a.i > b.i ? a.i : b.i)); break; }
             case MATH_CLAMP_I: { Value hi = pop(), lo = pop(), x = pop(); int64_t lower = x.i < lo.i ? lo.i : x.i; push(Value::integer(lower < hi.i ? lower : hi.i)); break; }
             // The loader structurally rejects unknown IDs before execution.
-            // Bytecode is trusted and R34 adds no run-time validation path.
+            // Bytecode is trusted: there is no run-time validation path.
             default: break;
           }
           break;
@@ -512,6 +523,11 @@ class Program {
         case POP: pop(); break;
         case HALT: return;
         default: throw Error("RUN_ERROR", "unknown opcode " + std::to_string(op));
+        }
+      } catch (Error& e) {
+        const Line* line = line_of(fault_pc);
+        if (line) e.locate(line->line, line->column);
+        throw;
       }
     }
   }

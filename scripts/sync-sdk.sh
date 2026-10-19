@@ -18,5 +18,5 @@ fi
 ref="${CPP_DSL_SDK_REF:-origin/main}"
 commit="$(git -C "$SDK" rev-parse "$ref")"
 git -C "$SDK" show "$commit:include/dslvm.hpp" > "$HEADER"
-printf 'repo=https://github.com/lmctlhq/cpp-dsl-sdk\ncommit=%s\nsha256=%s\n' "$commit" "$(hash "$HEADER")" > "$LOCK"
+printf 'repo=https://github.com/lmctl-ai/cpp-dsl-sdk\ncommit=%s\nsha256=%s\n' "$commit" "$(hash "$HEADER")" > "$LOCK"
 echo "synced cpp/dslvm.hpp from cpp-dsl-sdk $commit"
