@@ -866,6 +866,18 @@ void register_host(dslvm::Registry &r, Host &h) {
     // only modified when the script explicitly saves back to the same path.
     if (path.empty() || path.back() == '/')
       throw dslvm::Error("Html.save: path must name a file: " + path);
+#ifdef _WIN32
+    // Reserved names are checked before canonicalization: Win32 maps CON,
+    // ":stream" and trailing dots to something else entirely, and the
+    // canonicalization layer reports them confusingly (or fails) first.
+    const std::filesystem::path raw_path(path);
+    for (const auto &part : raw_path) {
+      if (part == raw_path.root_name()) continue; // "C:" is a drive, not a stream
+      if (windows_unsafe_component(part.wstring()))
+        throw dslvm::Error("Html.save: unsafe Windows path component '" + part.string() +
+                           "': " + path);
+    }
+#endif
     std::error_code ec;
     // generic_string: the containment check compares against '/'
     std::string root =

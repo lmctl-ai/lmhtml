@@ -2,6 +2,13 @@ name: ci
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "Run a single matrix job (or 'all')"
+        required: true
+        default: "all"
+        type: choice
+        options: [all, linux-x64, linux-arm64, macos-arm64, macos-x64, windows-x64]
   push:
     branches: [main]
     tags: ["v*"]
@@ -33,6 +40,7 @@ jobs:
           - { os: windows-2022,     name: windows-x64 }
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.name }}
+    if: github.event_name != 'workflow_dispatch' || inputs.only == 'all' || matrix.name == inputs.only
     defaults:
       run:
         shell: bash # pwsh/zsh would silently skip the sync scripts on some runners
