@@ -26,3 +26,5 @@ scripted by lmscript `_dsl_` bytecode). Read in numeric order.
 - `08-m2-classes-ids.md` — M2 measured note: class/id harvesting, suggest,
   str_difference, str_* catalog; 45 signatures; PASS 30/29 checks; ASan
   parser-selectors leak fix.
+- `09-m3-m4-diff-template.md` — depth guard (512), M3 diff + M4 template
+  measured notes; PASS 35/34 checks; serializer and hash_all bugs caught.
