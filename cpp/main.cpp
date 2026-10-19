@@ -794,9 +794,11 @@ void register_host(dslvm::Registry &r, Host &h) {
     if (path.empty() || path.back() == '/')
       throw dslvm::Error("Html.save: path must name a file: " + path);
     std::error_code ec;
-    std::string root = std::filesystem::weakly_canonical(std::filesystem::current_path(), ec).string();
+    // generic_string: the containment check compares against '/'
+    std::string root =
+        std::filesystem::weakly_canonical(std::filesystem::current_path(), ec).generic_string();
     std::string target =
-        std::filesystem::weakly_canonical(std::filesystem::absolute(path, ec), ec).string();
+        std::filesystem::weakly_canonical(std::filesystem::absolute(path, ec), ec).generic_string();
     if (ec || target.size() <= root.size() || target.compare(0, root.size(), root) != 0 ||
         target[root.size()] != '/')
       throw dslvm::Error("Html.save: path is outside the output root (working directory): " + path);

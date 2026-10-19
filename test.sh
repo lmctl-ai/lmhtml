@@ -472,7 +472,7 @@ echo 'broken-link tests/fixtures/realworld/srcset/page.html:0: missing.png' > "$
 cmp "$WORK/srcset.expected" "$WORK/srcset.txt" || fail "srcset link collection wrong: $(cat "$WORK/srcset.txt")"
 ok "img srcset URLs collected for link checking (data: srcset ignored)"
 
-"$HOST" --dsl build/rewrite-nav.dslb >"$WORK/rewrite.jsonl" || fail "rewrite-nav run"
+"$HOST" --dsl build/rewrite-nav.dslb >"$WORK/rewrite.jsonl" || { cat "$WORK/rewrite.jsonl" >&2; fail "rewrite-nav run"; }
 cat > "$WORK/expected-rewrite.txt" <<'EOF'
 diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
 diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > p:nth-child(2): text differs
