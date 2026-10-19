@@ -593,6 +593,7 @@ ok "link_kind: uppercase scheme, tab/newline in scheme, backslash hosts, .HTML, 
 # the absolute-pattern prefix check below.
 G="$WORK/globsite"; mkdir -p "$G/blog/2024"
 G="$(cd "$G" && pwd -P)"
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) G="$(cd "$G" && pwd -W | tr '\\' '/')";; esac
 for f in index.html blog/post.html blog/2024/old.html; do echo '<p>x</p>' > "$G/$f"; done
 compile_chunk load-dir-globs 'let n = 0;
 n = n + html.load_dir("'"$G"'", "./blog/*", "").len();
