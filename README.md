@@ -149,6 +149,8 @@ scripts replace a generated shell while retaining authored HTML exactly.
 
 `str_find`, `str_replace` and `str_trim` come from the pinned cpp-dsl-sdk string
 catalog (`string-catalog.lock`, `cpp/stdlib/string.hpp`); they operate on bytes.
+CMake selects those three implementations verbatim so unused catalog float
+parsers do not require floating-point `from_chars` on Apple libc++.
 `str_text_prefix(string, count)` returns at most count UTF-8 codepoints without
 splitting a character (negative counts yield empty; invalid UTF-8 is an error).
 The schema and `--schema` summary include these overloads and functions.

@@ -1,5 +1,5 @@
 #include <lexbor/dom/interfaces/document_type.h>
-#include "stdlib/string.hpp"
+#include "string_template.hpp"
 #include "dslvm.hpp"
 #include "analyze.hpp"
 #include "html.hpp"
