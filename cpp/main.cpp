@@ -10,6 +10,11 @@
 #include <random>
 #include <sys/stat.h>
 #include <unistd.h>
+#ifdef _WIN32
+#include <io.h>
+#include <process.h>
+#include <windows.h>
+#endif
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -358,13 +363,42 @@ template <class F> Value translate_errors(F &&fn) {
   }
 }
 
-// Write `content` to `target` (canonical, verified to lie under `root`)
-// without following symlinks anywhere below the root: each directory is
-// opened with O_NOFOLLOW relative to the previous one (created if missing),
-// the data goes to a fresh O_EXCL temp file in the final directory, is
-// fsync'ed, takes over the mode of the file it replaces, and is renamed into
-// place. Any failure removes the temp file. Swapping a directory for a
-// symlink after the path check cannot redirect the write.
+// Write `content` to `target` (canonical, verified to lie under `root`).
+// POSIX: without following symlinks anywhere below the root (O_NOFOLLOW dir
+// walk), data goes to a fresh O_EXCL temp file, is fsync'ed, takes over the
+// replaced file's mode, and is renamed into place. Windows (MinGW has no
+// openat/O_NOFOLLOW/fchmod): reduced guarantee — the directory walk and mode
+// preservation are skipped; atomicity is kept via temp file + MoveFileEx
+// replace. The path itself is still verified against the root beforehand.
+#ifdef _WIN32
+void write_inside_root(const std::string &root, const std::string &target,
+                       const std::string &content, const std::string &shown) {
+  auto fail = [&](const std::string &why) { throw dslvm::Error("Html.save: " + why + ": " + shown); };
+  std::error_code ec;
+  std::filesystem::create_directories(std::filesystem::path(target).parent_path(), ec);
+  if (ec) fail("cannot create directories");
+  static unsigned counter = 0;
+  std::string tmp = target + ".lmhtml-" + std::to_string(_getpid()) + "-" +
+                    std::to_string(++counter);
+  {
+    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+    if (!out) fail("cannot create temp file");
+    out << content;
+    out.flush();
+    if (!out) {
+      out.close();
+      std::filesystem::remove(tmp, ec);
+      fail("failed writing");
+    }
+  }
+  if (!MoveFileExA(tmp.c_str(), target.c_str(),
+                   MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+    std::filesystem::remove(tmp, ec);
+    fail("cannot rename into place");
+  }
+  (void) root;
+}
+#else
 void write_inside_root(const std::string &root, const std::string &target,
                        const std::string &content, const std::string &shown) {
   auto fail = [&](const std::string &why) {
@@ -442,6 +476,7 @@ void write_inside_root(const std::string &root, const std::string &target,
     fail("cannot rename into place");
   }
 }
+#endif
 
 // load_dir include/exclude patterns match the path relative to the
 // directory ("blog/2024/a.html"). "./x" means "x"; an absolute pattern is
