@@ -443,6 +443,39 @@ void write_inside_root(const std::string &root, const std::string &target,
   }
 }
 
+// load_dir include/exclude patterns match the path relative to the
+// directory ("blog/2024/a.html"). "./x" means "x"; an absolute pattern is
+// accepted only below the directory (made relative); one that leaves it
+// ("..", other absolute paths) could never match and is refused.
+std::string dir_pattern(const std::string &dir, const std::string &pattern, const char *which) {
+  std::string pat = pattern;
+  while (pat.rfind("./", 0) == 0) pat.erase(0, 2);
+  if (!pat.empty() && pat[0] == '/') {
+    std::error_code ec;
+    std::string base = std::filesystem::absolute(dir, ec).lexically_normal().string();
+    if (!base.empty() && base.back() != '/') base += '/';
+    if (ec || pat.rfind(base, 0) != 0)
+      throw dslvm::Error(std::string("Html.load_dir: ") + which + " pattern is outside " + dir +
+                         ": " + pattern);
+    pat.erase(0, base.size());
+  }
+  if (pat == ".." || pat.rfind("../", 0) == 0 || pat.find("/../") != std::string::npos)
+    throw dslvm::Error(std::string("Html.load_dir: ") + which + " pattern leaves " + dir + ": " +
+                       pattern);
+  return pat;
+}
+
+// Glob on a relative path; `*` crosses '/', and "**/" also matches zero
+// directories (gitignore): "**/a.html" matches "a.html", "x/**/a.html"
+// matches "x/a.html".
+bool glob_path_match(const std::string &rel, const std::string &pat) {
+  if (lmhtml::strlib::match(rel, pat)) return true;
+  std::string collapsed = pat;
+  while (collapsed.rfind("**/", 0) == 0) collapsed.erase(0, 3);
+  for (size_t at; (at = collapsed.find("/**/")) != std::string::npos;) collapsed.replace(at, 4, "/");
+  return collapsed != pat && lmhtml::strlib::match(rel, collapsed);
+}
+
 void checked_method(dslvm::Registry &registry, const char *type, const char *name,
                     std::vector<std::string> params, std::string returns,
                     dslvm::Method callback) {
@@ -673,6 +706,8 @@ void register_host(dslvm::Registry &r, Host &h) {
     std::error_code ec;
     if (!std::filesystem::is_directory(dir, ec))
       throw dslvm::Error("Html.load_dir: not a directory: " + dir);
+    const std::string include_pat = dir_pattern(dir, include, "include");
+    const std::string exclude_pat = dir_pattern(dir, exclude, "exclude");
     std::vector<std::string> files;
     // Directory symlinks are not followed (no loops); unreadable directories
     // are a clean error rather than a silently partial site.
@@ -683,8 +718,8 @@ void register_host(dslvm::Registry &r, Host &h) {
       std::string ext = it->path().extension().string();
       if (ext != ".html" && ext != ".htm") continue;
       std::string rel = it->path().lexically_relative(dir).string();
-      if (!include.empty() && include != "*" && !lmhtml::strlib::match(rel, include)) continue;
-      if (!exclude.empty() && lmhtml::strlib::match(rel, exclude)) continue;
+      if (!include.empty() && include != "*" && !glob_path_match(rel, include_pat)) continue;
+      if (!exclude.empty() && glob_path_match(rel, exclude_pat)) continue;
       files.push_back(it->path().string());
     }
     if (ec) throw dslvm::Error("Html.load_dir: cannot list " + dir + ": " + ec.message());

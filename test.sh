@@ -550,6 +550,21 @@ EOF
 diff -u "$WORK/link-kinds.expected" "$WORK/link-kinds.txt" || fail "link_kind classification"
 ok "link_kind: uppercase scheme, tab/newline in scheme, backslash hosts, .HTML, base href"
 
+# load_dir patterns: ./ prefix, absolute-below-dir, **/ zero dirs, escapes refused.
+G="$WORK/globsite"; mkdir -p "$G/blog/2024"
+for f in index.html blog/post.html blog/2024/old.html; do echo '<p>x</p>' > "$G/$f"; done
+compile_chunk load-dir-globs 'let n = 0;
+n = n + html.load_dir("'"$G"'", "./blog/*", "").len();
+n = n + html.load_dir("'"$G"'", "'"$G"'/blog/*", "blog/2024/*").len() * 10;
+n = n + html.load_dir("'"$G"'", "**/index.html", "").len() * 100;
+n = n + html.load_dir("'"$G"'", "blog/**/post.html", "").len() * 1000;
+report.add("globs", "", n, ""); report.write_text("'"$WORK"'/globs.txt");'
+"$HOST" --dsl "$WORK/load-dir-globs.dslb" >/dev/null || fail "load_dir globs run"
+[ "$(cat "$WORK/globs.txt")" = "globs :1112: " ] || fail "load_dir glob semantics: $(cat "$WORK/globs.txt")"
+expect_refusal load-dir-escape 'html.load_dir("'"$G"'", "../*", "");' 'pattern leaves'
+expect_refusal load-dir-abs 'html.load_dir("'"$G"'", "/etc/*", "");' 'pattern is outside'
+ok "load_dir globs: ./ and absolute-below-dir accepted, **/ matches zero dirs, escapes refused"
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"

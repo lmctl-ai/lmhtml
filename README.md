@@ -57,7 +57,12 @@ All work is an lmscript `_dsl_` chunk compiled against `schema/lmhtml.dsl.json`
    `external`, `special`, `outside-root`) plus `str_match(url, glob)` for
    hosting-noise patterns → `html.link_exists` → `report.add` +
    `report.write_text/json`. `load_dir(dir, include, exclude)` filters pages
-   by glob on the dir-relative path.
+   by glob on the dir-relative path (`blog/2024/a.html`): `""` or `"*"`
+   include everything, exclude wins over include, `*` crosses `/`, `**/`
+   also matches zero directories, a leading `./` is ignored; absolute
+   patterns must lie below `dir`, and patterns leaving it are refused.
+   Hidden files and dirs are included; directory symlinks are not followed;
+   results are sorted by path.
 2. **CSS class/id typos** — `examples/class-typos.lms`: site-wide sets in one
    call (`DocList.classes_used()` / `css_classes()` / `ids()` / `css_ids()`,
    covering inline `<style>`, linked local stylesheets and `@media` blocks);
