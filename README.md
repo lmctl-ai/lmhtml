@@ -13,7 +13,7 @@ cpp-dsl-sdk header. See `durable-memory/` for design notes.
 
 - C++17 toolchain, CMake >= 3.24, Ninja
 - An lmscript compiler that emits DSL bytecode v5: `npm i -g @lmctl-ai/lmctl`
-  (Node 22+) puts `lmscript` on PATH; `scripts/select-compiler.sh` probes it.
+  (Node.js 24.15 or newer) puts `lmscript` on PATH; `scripts/select-compiler.sh` probes it.
   Set `LMSCRIPT_BIN` to select an explicit compiler executable. For local
   compiler-source development, set `LMSCRIPT_SOURCE` and use
   `scripts/lmscript-source.sh` directly.
