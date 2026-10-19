@@ -1,6 +1,10 @@
 #include "html.hpp"
+#include <cctype>
 #include <functional>
+#include <set>
 #include <lexbor/css/css.h>
+#include <lexbor/css/rule.h>
+#include <lexbor/css/stylesheet.h>
 #include <lexbor/selectors/selectors.h>
 
 namespace lmhtml {
@@ -137,6 +141,73 @@ bool has_anchor(Document &doc, const std::string &fragment) {
       found = true;
   });
   return found;
+}
+
+std::vector<std::string> classes_used(Document &doc) {
+  std::set<std::string> names;
+  walk(lxb_dom_interface_node(doc.tree), [&](lxb_dom_node_t *node) {
+    if (!has_attr(node, "class")) return;
+    std::string value = attr(node, "class");
+    size_t pos = 0;
+    while (pos < value.size()) {
+      while (pos < value.size() && std::isspace(static_cast<unsigned char>(value[pos]))) pos++;
+      size_t end = pos;
+      while (end < value.size() && !std::isspace(static_cast<unsigned char>(value[end]))) end++;
+      if (end > pos) names.insert(value.substr(pos, end - pos));
+      pos = end;
+    }
+  });
+  return std::vector<std::string>(names.begin(), names.end());
+}
+
+std::vector<std::string> ids_used(Document &doc) {
+  std::set<std::string> names;
+  walk(lxb_dom_interface_node(doc.tree), [&](lxb_dom_node_t *node) {
+    if (has_attr(node, "id")) names.insert(attr(node, "id"));
+  });
+  return std::vector<std::string>(names.begin(), names.end());
+}
+
+static std::string lex_str(const lexbor_str_t &s) {
+  return s.data ? std::string(reinterpret_cast<const char *>(s.data), s.length) : "";
+}
+
+static void harvest_selector_list(const lxb_css_selector_list_t *list,
+                                  std::set<std::string> &classes, std::set<std::string> &ids) {
+  for (const lxb_css_selector_list_t *chain = list; chain; chain = chain->next)
+    for (const lxb_css_selector_t *sel = chain->first; sel; sel = sel->next) {
+      if (sel->type == LXB_CSS_SELECTOR_TYPE_CLASS) classes.insert(lex_str(sel->name));
+      else if (sel->type == LXB_CSS_SELECTOR_TYPE_ID) ids.insert(lex_str(sel->name));
+    }
+}
+
+void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std::string> &ids) {
+  std::set<std::string> class_set, id_set;
+  lxb_css_parser_t *parser = lxb_css_parser_create();
+  if (!parser || lxb_css_parser_init(parser, nullptr) != LXB_STATUS_OK)
+    throw std::string("out of memory creating CSS parser");
+  lxb_css_parser_selectors_init(parser);
+  for (auto *node : select(lxb_dom_interface_node(doc.tree), "style")) {
+    std::string css = text_content(node);
+    lxb_css_stylesheet_t *sst = lxb_css_stylesheet_create(nullptr);
+    if (!sst || lxb_css_stylesheet_parse(sst, parser,
+                                         reinterpret_cast<const lxb_char_t *>(css.data()),
+                                         css.size()) != LXB_STATUS_OK) {
+      if (sst) lxb_css_stylesheet_destroy(sst, true);
+      lxb_css_parser_destroy(parser, true);
+      throw std::string("out of memory parsing inline stylesheet");
+    }
+    if (sst->root && sst->root->type == LXB_CSS_RULE_LIST) {
+      auto *rules = reinterpret_cast<lxb_css_rule_list_t *>(sst->root);
+      for (lxb_css_rule_t *rule = rules->first; rule; rule = rule->next)
+        if (rule->type == LXB_CSS_RULE_STYLE)
+          harvest_selector_list(lxb_css_rule_style(rule)->selector, class_set, id_set);
+    }
+    lxb_css_stylesheet_destroy(sst, true);
+  }
+  lxb_css_parser_destroy(parser, true);
+  classes.assign(class_set.begin(), class_set.end());
+  ids.assign(id_set.begin(), id_set.end());
 }
 
 std::string url_scheme(const std::string &url) {

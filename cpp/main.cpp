@@ -1,6 +1,7 @@
 #include "dslvm.hpp"
 #include "html.hpp"
 #include "schema_embedded.hpp"
+#include "strlib.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
@@ -287,12 +288,22 @@ void register_host(dslvm::Registry &r, Host &h) {
     auto *doc = doc_of(p, "Doc.links");
     return h.hold(h.str_lists, "StrList", lmhtml::collect_links(*doc));
   });
-  checked_method(r, "Doc", "classes_used", {}, "StrList",
-                 [](void *, Args &) { return not_yet("Doc.classes_used", "milestone M2"); });
-  checked_method(r, "Doc", "css_classes", {}, "StrList",
-                 [](void *, Args &) { return not_yet("Doc.css_classes", "milestone M2"); });
-  checked_method(r, "Doc", "ids", {}, "StrList",
-                 [](void *, Args &) { return not_yet("Doc.ids", "milestone M2"); });
+  checked_method(r, "Doc", "classes_used", {}, "StrList", [&h](void *p, Args &) {
+    return h.hold(h.str_lists, "StrList", lmhtml::classes_used(*doc_of(p, "Doc.classes_used")));
+  });
+  checked_method(r, "Doc", "css_classes", {}, "StrList", [&h](void *p, Args &) {
+    std::vector<std::string> classes, ids;
+    lmhtml::css_names(*doc_of(p, "Doc.css_classes"), classes, ids);
+    return h.hold(h.str_lists, "StrList", std::move(classes));
+  });
+  checked_method(r, "Doc", "css_ids", {}, "StrList", [&h](void *p, Args &) {
+    std::vector<std::string> classes, ids;
+    lmhtml::css_names(*doc_of(p, "Doc.css_ids"), classes, ids);
+    return h.hold(h.str_lists, "StrList", std::move(ids));
+  });
+  checked_method(r, "Doc", "ids", {}, "StrList", [&h](void *p, Args &) {
+    return h.hold(h.str_lists, "StrList", lmhtml::ids_used(*doc_of(p, "Doc.ids")));
+  });
 
   checked_method(r, "Node", "tag", {}, "string", [](void *p, Args &) {
     return Value::string(lmhtml::tag_name(node_of(p, "Node.tag")));
@@ -435,8 +446,27 @@ void register_host(dslvm::Registry &r, Host &h) {
     return Value::none();
   });
 
-  checked_function(r, "suggest", {"string", "StrList"}, "StrList",
-                   [](Args &) { return not_yet("suggest", "milestone M2"); });
+  checked_function(r, "suggest", {"string", "StrList"}, "StrList", [&h](Args &a) {
+    auto &candidates = *self<std::vector<std::string>>(a[1].obj);
+    return h.hold(h.str_lists, "StrList", lmhtml::strlib::suggest(a[0].s, candidates));
+  });
+  checked_function(r, "str_difference", {"StrList", "StrList"}, "StrList", [&h](Args &a) {
+    auto &incl = *self<std::vector<std::string>>(a[0].obj);
+    auto &excl = *self<std::vector<std::string>>(a[1].obj);
+    return h.hold(h.str_lists, "StrList", lmhtml::strlib::difference(incl, excl));
+  });
+  checked_function(r, "str_starts_with", {"string", "string"}, "bool",
+                   [](Args &a) { return Value::boolean(lmhtml::strlib::starts_with(a[0].s, a[1].s)); });
+  checked_function(r, "str_ends_with", {"string", "string"}, "bool",
+                   [](Args &a) { return Value::boolean(lmhtml::strlib::ends_with(a[0].s, a[1].s)); });
+  checked_function(r, "str_contains", {"string", "string"}, "bool",
+                   [](Args &a) { return Value::boolean(lmhtml::strlib::contains(a[0].s, a[1].s)); });
+  checked_function(r, "str_lower", {"string"}, "string",
+                   [](Args &a) { return Value::string(lmhtml::strlib::lower(a[0].s)); });
+  checked_function(r, "str_substr", {"string", "int", "int"}, "string",
+                   [](Args &a) { return Value::string(lmhtml::strlib::substr(a[0].s, a[1].i, a[2].i)); });
+  checked_function(r, "str_len", {"string"}, "int",
+                   [](Args &a) { return Value::integer(lmhtml::strlib::len(a[0].s)); });
 }
 
 // Short human/LLM-readable schema summary, mechanically derived from the

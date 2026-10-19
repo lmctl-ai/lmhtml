@@ -29,6 +29,11 @@ std::string outer_html(lxb_dom_node_t *node);
 lxb_dom_node_t *parent_node(lxb_dom_node_t *node); // nullptr at the top
 std::vector<std::string> collect_links(Document &doc); // a/link href + img/script src, tree order
 bool has_anchor(Document &doc, const std::string &fragment);
+std::vector<std::string> classes_used(Document &doc);  // sorted unique class tokens
+std::vector<std::string> ids_used(Document &doc);      // sorted unique id values
+// .class and #id names defined by the document's inline <style> sheets.
+// v0: top-level style rules only (rules nested in @media are not harvested).
+void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std::string> &ids);
 std::string url_scheme(const std::string &url); // "" for relative references
 std::string resolve_relative(const std::string &base_file, const std::string &ref);
 
