@@ -5,7 +5,7 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 
 ## Toolchain
 
-- cpp-dsl-sdk vendored header pinned by `sdk.lock` at commit `4283cf33`
+- cpp-dsl-sdk vendored header pinned by `sdk.lock` at commit `62655a1d`
   (bytecode v5); `scripts/sync-sdk.sh --verify` is the first test check.
 - lexbor pinned by `lexbor.lock` at `f4cbbcd9`, shallow-fetched into
   git-ignored `third_party/lexbor` by `scripts/sync-lexbor.sh`
