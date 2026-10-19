@@ -1,4 +1,5 @@
 #include "dslvm.hpp"
+#include "analyze.hpp"
 #include "html.hpp"
 #include "schema_embedded.hpp"
 #include "strlib.hpp"
@@ -437,8 +438,9 @@ void register_host(dslvm::Registry &r, Host &h) {
                  [](void *, Args &) { return not_yet("Node.remove", "milestone M5"); });
   checked_method(r, "Node", "replace_with", {"string"}, "Node",
                  [](void *, Args &) { return not_yet("Node.replace_with", "milestone M5"); });
-  checked_method(r, "Node", "hash", {}, "int",
-                 [](void *, Args &) { return not_yet("Node.hash", "milestone M3"); });
+  checked_method(r, "Node", "hash", {}, "int", [](void *p, Args &) {
+    return Value::integer(static_cast<int64_t>(lmhtml::subtree_hash(node_of(p, "Node.hash"))));
+  });
 
   checked_method(r, "NodeList", "len", {}, "int", [](void *p, Args &) {
     return Value::integer(static_cast<int64_t>(self<std::vector<lxb_dom_node_t *>>(p)->size()));
@@ -519,8 +521,15 @@ void register_host(dslvm::Registry &r, Host &h) {
   checked_method(r, "Html", "link_exists", {"Doc", "string"}, "bool", [&h](void *, Args &a) {
     return Value::boolean(link_exists(h, doc_of(a[0].obj, "Html.link_exists"), a[1].s));
   });
-  checked_method(r, "Html", "diff", {"Doc", "Doc"}, "int",
-                 [](void *, Args &) { return not_yet("Html.diff", "milestone M3"); });
+  checked_method(r, "Html", "diff", {"Doc", "Doc"}, "int", [&h](void *, Args &a) {
+    auto *da = doc_of(a[0].obj, "Html.diff");
+    auto *db = doc_of(a[1].obj, "Html.diff");
+    std::vector<lmhtml::DiffFinding> found;
+    size_t n = lmhtml::diff_documents(*da, *db, found);
+    for (const auto &f : found)
+      h.report.findings.push_back({f.kind, f.file, f.message, f.line});
+    return Value::integer(static_cast<int64_t>(n));
+  });
   checked_method(r, "Html", "write_template", {"DocList", "int", "string"}, "int",
                  [](void *, Args &) { return not_yet("Html.write_template", "milestone M4"); });
 

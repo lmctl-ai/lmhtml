@@ -31,7 +31,8 @@ ok "host build ($BUILD_DIR)"
 
 "$LMSCRIPT" examples/check-links.lms build/check-links.dslb >"$WORK/compile.log" || fail "check-links compile with $COMPILER_SOURCE"
 "$LMSCRIPT" examples/class-typos.lms build/class-typos.dslb >>"$WORK/compile.log" || fail "class-typos compile with $COMPILER_SOURCE"
-for f in check-links class-typos; do
+"$LMSCRIPT" examples/diff-pages.lms build/diff-pages.dslb >>"$WORK/compile.log" || fail "diff-pages compile with $COMPILER_SOURCE"
+for f in check-links class-typos diff-pages; do
   [ "$(od -An -t u1 -j 5 -N 1 "build/$f.dslb" | tr -d ' ')" = 5 ] || fail "$f was not compiled as bytecode v5"
 done
 ok "examples compile with $COMPILER_SOURCE as bytecode v5"
@@ -95,6 +96,25 @@ assert kinds==['id-unused','class-undefined','class-unused'], kinds
 print('typo JSON report: 3 findings, well-formed')
 PY
 ok "class/id typo findings match expected exactly (text and JSON)"
+
+"$HOST" --dsl build/diff-pages.dslb >"$WORK/diff.jsonl" || fail "diff-pages run"
+cat > "$WORK/expected-diff.txt" <<'EOF'
+diff-added tests/fixtures/diff/b.html:0: html > body:nth-child(2) > ul:nth-child(2) > li:nth-child(3)
+diff-changed tests/fixtures/diff/a.html:0: html > body:nth-child(2) > p.intro:nth-child(3): attributes differ: class
+diff-changed tests/fixtures/diff/a.html:0: html > body:nth-child(2) > p.intro:nth-child(3): text differs
+diff-removed tests/fixtures/diff/a.html:0: html > body:nth-child(2) > div.box:nth-child(4)
+summary a-vs-b:0: 4 differences
+summary a-vs-noise:0: 0 differences
+EOF
+cmp "$WORK/expected-diff.txt" build/diff.txt || fail "structural diff report differs from expected findings"
+python3 - <<'PY'
+import json
+data=json.load(open('build/diff.json'))
+kinds=[f['kind'] for f in data['findings']]
+assert kinds==['diff-added','diff-changed','diff-changed','diff-removed','summary','summary'], kinds
+print('diff JSON report: 4 structural findings + 2 summaries')
+PY
+ok "structural diff: known edits found exactly, whitespace noise ignored, hash stable"
 
 cp build/links.txt "$WORK/links-first.txt"
 "$HOST" --dsl build/check-links.dslb >/dev/null || fail "deterministic rerun"
@@ -216,7 +236,7 @@ EOF
 diff -u "$WORK/link-policy.expected" "$WORK/link-policy.txt" || fail "link resolution policy"
 ok "link policy: dirs, query, percent-encoding, base href, root, schemes, escapes"
 
-compile_chunk not-implemented 'let d = html.parse("<p>x</p>"); html.diff(d, d);'
+compile_chunk not-implemented 'let d = html.parse("<p>x</p>"); d.select("p").at(0).remove();'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"
 ok "later-milestone members refuse cleanly (exit 3)"
