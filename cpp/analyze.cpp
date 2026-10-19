@@ -169,6 +169,21 @@ std::string segment(lxb_dom_node_t *node) {
   return seg;
 }
 
+// Full path from the html root, e.g. html > body:nth-child(2) > nav.site-nav:nth-child(2).
+std::string path_of(lxb_dom_node_t *node) {
+  std::vector<std::string> parts;
+  for (lxb_dom_node_t *n = node; n; n = parent_node(n)) {
+    parts.push_back(tag_name(n) == "html" ? "html" : segment(n));
+    if (tag_name(n) == "html") break;
+  }
+  std::string out;
+  for (auto it = parts.rbegin(); it != parts.rend(); ++it) {
+    if (!out.empty()) out += " > ";
+    out += *it;
+  }
+  return out;
+}
+
 // Sibling lists whose LCS table (after trimming the common prefix/suffix)
 // would exceed this many cells use greedy in-order matching instead; a large
 // reorder may then show extra added/removed pairs, never unbounded memory.
@@ -395,7 +410,7 @@ TemplateResult make_template(std::vector<Document *> &pages, int64_t k,
       if (is_common(c)) {
         result.findings.push_back(
             {"common-part", tpl_path,
-             tag_name(c) + " shared by " +
+             path_of(c) + " shared by " +
                  std::to_string(coverage[(*skeleton_hashes)[c]].size()) + " of " +
                  std::to_string(pages.size()) + " pages",
              0});

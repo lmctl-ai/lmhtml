@@ -125,10 +125,10 @@ cat > "$WORK/expected-template.html" <<'EOF'
 EOF
 cmp "$WORK/expected-template.html" build/template.html || fail "emitted template differs from expected"
 cat > "$WORK/expected-tpl-report.txt" <<'EOF'
-common-part build/template.html:0: head shared by 5 of 5 pages
-common-part build/template.html:0: header shared by 5 of 5 pages
-common-part build/template.html:0: nav shared by 4 of 5 pages
-common-part build/template.html:0: footer shared by 4 of 5 pages
+common-part build/template.html:0: html > head:nth-child(1) shared by 5 of 5 pages
+common-part build/template.html:0: html > body:nth-child(2) > header.site-header:nth-child(1) shared by 5 of 5 pages
+common-part build/template.html:0: html > body:nth-child(2) > nav.site-nav:nth-child(2) shared by 4 of 5 pages
+common-part build/template.html:0: html > body:nth-child(2) > footer.site-footer:nth-child(4) shared by 4 of 5 pages
 summary template:0: 1 slots for 5 pages
 EOF
 cmp "$WORK/expected-tpl-report.txt" build/template-report.txt || fail "template findings differ from expected"
