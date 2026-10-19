@@ -32,16 +32,31 @@ inline std::string target(std::string s) {
 inline std::string render(lxb_dom_node_t *n);
 inline std::string children(lxb_dom_node_t *n) {
   std::string s;
-  for(auto *c=n->first_child;c;c=c->next) s+=render(c);
+  for(auto *c=n->first_child;c;c=c->next) {
+    auto part=render(c);
+    size_t trailing=0, leading=0;
+    while(trailing<s.size()&&s[s.size()-trailing-1]=='\n') ++trailing;
+    while(leading<part.size()&&part[leading]=='\n') ++leading;
+    if(trailing+leading>2) part.erase(0,std::min(leading,trailing+leading-2));
+    s+=part;
+  }
   return s;
 }
 inline std::string indent(const std::string &s,const std::string &prefix) {
   std::string out=prefix;
-  for(size_t i=0;i<s.size();++i) { out+=s[i]; if(s[i]=='\n'&&i+1<s.size()) out+=prefix; }
+  for(size_t i=0;i<s.size();++i) { out+=s[i]; if(s[i]=='\n'&&i+1<s.size()) out+=(s[i+1]=='\n'?trim(prefix):prefix); }
   return out;
 }
 inline std::string render(lxb_dom_node_t *n) {
-  if(n->type==LXB_DOM_NODE_TYPE_TEXT) return escape(text_content(n));
+  if(n->type==LXB_DOM_NODE_TYPE_TEXT) {
+    auto text=text_content(n);
+    auto block=[](lxb_dom_node_t *node) {
+      return node&&node->type==LXB_DOM_NODE_TYPE_ELEMENT&&
+        std::string("|h1|h2|h3|h4|p|pre|ul|ol|li|table|blockquote|hr|dl|dt|dd|main|section|figure|figcaption|").find("|"+tag_name(node)+"|")!=std::string::npos;
+    };
+    if(trim(text).empty()&&(block(n->prev)||block(n->next))) return "";
+    return escape(text);
+  }
   if(n->type==LXB_DOM_NODE_TYPE_COMMENT) return "";
   if(n->type!=LXB_DOM_NODE_TYPE_ELEMENT) return children(n);
   auto tag=tag_name(n);

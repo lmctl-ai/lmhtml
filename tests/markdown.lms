@@ -4,16 +4,17 @@ fn equal(markup: string, expected: string) -> void {
   let first = doc.markdown("main");
   if (first != expected || first != doc.markdown("main")) { report.add("markdown", "fixture", 0, "unexpected conversion: " + first); }
 }
-equal("<h1>A &amp; B</h1><p>Hello <strong>bold</strong> <em>soft</em> <code>a`b</code>.</p>", "# A & B\n\n\n\nHello **bold** *soft* ``a`b``\\.\n");
+equal("<h1>A &amp; B</h1><p>Hello <strong>bold</strong> <em>soft</em> <code>a`b</code>.</p>", "# A & B\n\nHello **bold** *soft* ``a`b``\\.\n");
 equal("<pre><kbd>echo x</kbd>\n<samp>x</samp></pre>", "```\necho x\nx\n```\n");
 equal("<pre><code>```\n  exact &lt;x&gt;\n</code></pre>", "````\n```\n  exact <x>\n````\n");
-equal("<ul><li>one<ul><li>two</li></ul></li><li>three</li></ul>", "- one\n  \n  - two\n- three\n");
+equal("<ul><li>one<ul><li>two</li></ul></li><li>three</li></ul>", "- one\n\n  - two\n- three\n");
 equal("<ol start='3'><li>three</li><li>four</li></ol>", "3. three\n4. four\n");
 equal("<table><tr><th>Key</th><th>Value</th></tr><tr><td>a|b</td><td><code>x|y</code></td></tr></table>", "| Key | Value |\n| --- | --- |\n| a\\|b | `x\\|y` |\n");
 equal("<p><a href='/skills/x.html#id' title='say &quot;hi&quot;'>Read</a> <img src='a b.png' alt='A * B'></p>", "[Read](</skills/x.html#id> \"say \\\"hi\\\"\") ![A \\* B](<a%20b.png>)\n");
-equal("<blockquote><p>Quote</p><p>Again</p></blockquote>", "> Quote\n> \n> \n> \n> Again\n");
-equal("<dl><dt>Term</dt><dd>Definition</dd></dl><hr><h4>End</h4>", "**Term**\n\nDefinition\n\n\n\n---\n\n\n\n#### End\n");
-equal("<p>- literal bullet</p><p>1. literal number</p><p>2) literal number</p>", "\\- literal bullet\n\n\n\n1\\. literal number\n\n\n\n2\\) literal number\n");
+equal("<blockquote><p>Quote</p><p>Again</p></blockquote>", "> Quote\n>\n> Again\n");
+equal("<dl><dt>Term</dt><dd>Definition</dd></dl><hr><h4>End</h4>", "**Term**\n\nDefinition\n\n---\n\n#### End\n");
+equal("<p>- literal bullet</p><p>1. literal number</p><p>2) literal number</p>", "\\- literal bullet\n\n1\\. literal number\n\n2\\) literal number\n");
+equal("<h1>Title</h1>\n  <p>Text</p>\n<p><em>A</em> <strong>B</strong></p>\n", "# Title\n\nText\n\n*A* **B**\n");
 report.write_text(${ARGV[1]});
 report.fail_if_any();
 end _dsl_
