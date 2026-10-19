@@ -11,9 +11,11 @@ VER="${3:-0.0.0}"
 # mutually inconsistent packages.
 [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]] ||
   { echo "version '$VER' is not semver (x.y.z)" >&2; exit 2; }
-# The repository has no LICENSE file yet: do not claim one. "private": true
-# makes an accidental `npm publish` of these directories fail.
-LICENSE_FIELD="UNLICENSED"
+# lmhtml's own code is MIT (LICENSE in the repo root); both license files
+# are staged into every package. "private": true makes an accidental
+# `npm publish` of these directories fail.
+LICENSE_FIELD="MIT"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 PLATFORMS="linux-x64 linux-arm64 macos-x64 macos-arm64 windows-x64"
 npm_os() { case "$1" in macos*) echo darwin;; windows*) echo win32;; *) echo "${1%%-*}";; esac; }
@@ -21,6 +23,7 @@ npm_cpu() { echo "${1##*-}"; }
 
 rm -rf "$OUT"
 mkdir -p "$OUT/lmhtml/bin" "$OUT/@lmhtml"
+cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_NOTICES" "$OUT/lmhtml/"
 
 # Main package: bin shim resolves the per-platform optional dependency.
 cat > "$OUT/lmhtml/package.json" <<EOF
@@ -31,6 +34,7 @@ cat > "$OUT/lmhtml/package.json" <<EOF
   "license": "$LICENSE_FIELD",
   "private": true,
   "bin": { "lmhtml": "bin/lmhtml.js" },
+  "files": [ "bin/lmhtml.js", "LICENSE", "THIRD_PARTY_NOTICES" ],
   "optionalDependencies": {
 $(i=0; for p in $PLATFORMS; do
   [ $i -gt 0 ] && printf ',\n'
@@ -77,6 +81,7 @@ for plat in $PLATFORMS; do
   dir="$OUT/@lmhtml/$plat"
   mkdir -p "$dir"
   cp "$src" "$dir/$bin"
+  cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_NOTICES" "$dir/"
   chmod +x "$dir/$bin"
   cat > "$dir/package.json" <<EOF
 {
@@ -87,7 +92,7 @@ for plat in $PLATFORMS; do
   "private": true,
   "os": [ "$(npm_os "$plat")" ],
   "cpu": [ "$(npm_cpu "$plat")" ],
-  "files": [ "$bin" ]
+  "files": [ "$bin", "LICENSE", "THIRD_PARTY_NOTICES" ]
 }
 EOF
 done

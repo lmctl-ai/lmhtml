@@ -617,16 +617,18 @@ python3 - "$WORK/npm-out" <<'PY'
 import json,os,sys
 out=sys.argv[1]
 main=json.load(open(f'{out}/lmhtml/package.json'))
-assert main['version']=='1.2.3' and main['private'] is True, main
+assert main['version']=='1.2.3' and main['private'] is True and main['license']=='MIT', main
 expect={'linux-x64':('linux','x64','lmhtml'),'linux-arm64':('linux','arm64','lmhtml'),
         'macos-x64':('darwin','x64','lmhtml'),'macos-arm64':('darwin','arm64','lmhtml'),
         'windows-x64':('win32','x64','lmhtml.exe')}
 assert main['optionalDependencies']=={f'@lmhtml/{p}':'1.2.3' for p in expect}, main
 for p,(os_,cpu,binname) in expect.items():
     j=json.load(open(f'{out}/@lmhtml/{p}/package.json'))
-    assert (j['name'],j['version'],j['os'],j['cpu'],j['files'],j['private'])==(f'@lmhtml/{p}','1.2.3',[os_],[cpu],[binname],True), j
+    assert (j['name'],j['version'],j['os'],j['cpu'],j['files'],j['private'],j['license'])==(f'@lmhtml/{p}','1.2.3',[os_],[cpu],[binname,'LICENSE','THIRD_PARTY_NOTICES'],True,'MIT'), j
     assert os.access(f'{out}/@lmhtml/{p}/{binname}', os.X_OK), p
+    assert os.path.isfile(f'{out}/@lmhtml/{p}/LICENSE') and os.path.isfile(f'{out}/@lmhtml/{p}/THIRD_PARTY_NOTICES'), p
 assert os.access(f'{out}/lmhtml/bin/lmhtml.js', os.X_OK)
+assert os.path.isfile(f'{out}/lmhtml/LICENSE') and os.path.isfile(f'{out}/lmhtml/THIRD_PARTY_NOTICES')
 PY
 [ $? = 0 ] || fail "npm layout content"
 set +e; scripts/npm-layout.sh "$NPMART" "$WORK/npm-bad" v1 >/dev/null 2>&1; code=$?; set -e
