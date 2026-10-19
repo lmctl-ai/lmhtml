@@ -9,6 +9,10 @@ if (script.source_inner("main") != "real") { report.add("fail", "source", 0, "ra
 if (str_replace("a{{x}}b{{x}}", "{{x}}", "&") != "a&b&" || str_find("abc", "b") != 1 || str_trim(" \ttext\n") != "text") { report.add("fail", "catalog", 0, "catalog string functions"); }
 if (str_text_prefix("é界🙂x", 3) != "é界🙂" || str_text_prefix("abc", -1) != "") { report.add("fail", "prefix", 0, "UTF-8 split"); }
 if (html.parse("<nav>one</nav><nav>two</nav>").source_elements("nav").len() != 2) { report.add("fail", "ranges", 0, "multiple explicit ranges"); }
+let filtered = html.parse("<body><nav>x</nav><main><!-- <nav>x</nav> --><nav>keep</nav><p>content</p></main><footer>y</footer></body>");
+if (filtered.source_inner("body", "nav footer") != "<main><!-- <nav>x</nav> --><nav>keep</nav><p>content</p></main>") { report.add("fail", "filtered", 0, "nested content or comment changed"); }
+if (html.parse("<nav>x</nav><!-- <nav>x</nav> --><h1>title</h1>").source_inner("", "nav") != "<!-- <nav>x</nav> --><h1>title</h1>") { report.add("fail", "filtered", 0, "fragment source filter"); }
+if (html.parse("<!-- <!doctype html> --><!DOCTYPE html><h1>X</h1>").source_inner("", "!doctype") != "<!-- <!doctype html> --><h1>X</h1>") { report.add("fail", "filtered", 0, "doctype fragment filter"); }
 html.save(raw, ${ARGV[1]});
 if (html.load(${ARGV[1]}).source() != raw) { report.add("fail", "save", 0, "raw save changed bytes"); }
 report.write_text(${ARGV[2]});

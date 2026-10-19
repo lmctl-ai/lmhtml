@@ -19,7 +19,7 @@ struct Document {
   bool utf8_source = true;
   size_t source_bytes = 0;
   std::string source;
-  struct SourceRange { std::string tag; size_t begin, inner_begin, inner_end, end; };
+  struct SourceRange { std::string tag; size_t begin, inner_begin, inner_end, end; size_t parent = std::string::npos; };
   std::vector<SourceRange> source_ranges;
   bool leading_doctype = false;
   std::vector<std::string> markup_errors; // explicit-tag audit, before HTML repair
@@ -69,6 +69,7 @@ lxb_dom_node_t *insert_html(lxb_dom_node_t *node, const std::string &html, bool 
 // Full document serialization (doctype included when present).
 std::string document_html(Document &doc);
 std::string source_element(Document &doc, const std::string &tag, bool inner);
+std::string source_filtered(Document &doc, const std::string &tag, const std::string &omit);
 std::string url_scheme(const std::string &url); // "" for relative references
 std::string resolve_relative(const std::string &base_file, const std::string &ref);
 

@@ -141,6 +141,10 @@ returns all matching outer source slices in source order. Names are lowercase. M
 or implicit elements return an empty string; duplicate matches and unclosed
 non-void elements are errors. These are source snapshots: DOM edits do not change
 them. They preserve quotes, entities, comments, UTF-8 and preformatted whitespace.
+The overload `Doc.source_inner(tag, omit_tags)` removes explicit **direct child**
+elements named in a space-separated list. An empty tag selects the whole source
+fragment; `!doctype` names an explicit doctype declaration. Filtering uses token offsets and lexical parentage: identical HTML in
+comments, raw text or nested content is preserved.
 
 `Html.save(source_string, path)` writes those UTF-8 bytes verbatim, atomically,
 within the working directory, with the same path policy and dry-run reporting

@@ -668,6 +668,9 @@ void register_host(dslvm::Registry &r, Host &h) {
   checked_method(r, "Doc", "source_inner", {"string"}, "string", [](void *p, Args &a) {
     return wrap_lex("Doc.source_inner", [&] { return Value::string(lmhtml::source_element(*doc_of(p, "Doc.source_inner"), a[0].s, true)); });
   });
+  checked_method(r, "Doc", "source_inner", {"string", "string"}, "string", [](void *p, Args &a) {
+    return wrap_lex("Doc.source_inner", [&] { return Value::string(lmhtml::source_filtered(*doc_of(p, "Doc.source_inner"), a[0].s, a[1].s)); });
+  });
   checked_method(r, "Doc", "source_outer", {"string"}, "string", [](void *p, Args &a) {
     return wrap_lex("Doc.source_outer", [&] { return Value::string(lmhtml::source_element(*doc_of(p, "Doc.source_outer"), a[0].s, false)); });
   });

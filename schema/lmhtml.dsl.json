@@ -6,7 +6,7 @@
       "methods": {
         "source_elements": [{ "params": ["string"], "returns": "StrList" }],
         "source": [{ "params": [], "returns": "string" }],
-        "source_inner": [{ "params": ["string"], "returns": "string" }],
+        "source_inner": [{ "params": ["string"], "returns": "string" }, { "params": ["string", "string"], "returns": "string" }],
         "source_outer": [{ "params": ["string"], "returns": "string" }],
         "byte_size": [{ "params": [], "returns": "int" }],
         "doctype": [{ "params": [], "returns": "string" }],

@@ -53,8 +53,9 @@ struct MarkupAudit {
       if (whitespace) return;
     }
     if (first) { doc.leading_doctype = t->tag_id == LXB_TAG__EM_DOCTYPE; first = false; }
-    if (t->tag_id < LXB_TAG__BEGIN) return;
-    std::string name(reinterpret_cast<const char *>(t->begin), t->end - t->begin);
+    const bool doctype = t->tag_id == LXB_TAG__EM_DOCTYPE;
+    if (t->tag_id < LXB_TAG__BEGIN && !doctype) return;
+    std::string name = doctype ? "!doctype" : std::string(reinterpret_cast<const char *>(t->begin), t->end - t->begin);
     for (char &c : name) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
     std::set<std::string> attrs;
     for (auto *a = t->attr_first; a; a = a->next) {
@@ -64,7 +65,7 @@ struct MarkupAudit {
       if (!attrs.insert(attr_name).second)
         doc.markup_errors.push_back("duplicate attribute " + attr_name + " on <" + name + ">");
     }
-    static const std::set<std::string> voids = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"};
+    static const std::set<std::string> voids = {"!doctype", "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"};
     // Token boundaries come from lexbor. The last attribute's end is past
     // any quoted '>' bytes, so the next '>' terminates this already-tokenized tag.
     const auto *base = reinterpret_cast<const lxb_char_t *>(doc.source.data());
@@ -84,7 +85,7 @@ struct MarkupAudit {
           if (range.tag == name) { range.inner_end = begin - 2; range.end = end; break; }
         }
       } else {
-        doc.source_ranges.push_back({name, begin - 1, end, end, voids.count(name) ? end : 0});
+        doc.source_ranges.push_back({name, begin - (doctype ? 2 : 1), end, end, voids.count(name) ? end : 0, source_stack.empty() ? std::string::npos : source_stack.back()});
         if (!voids.count(name)) source_stack.push_back(doc.source_ranges.size() - 1);
       }
     }
@@ -161,6 +162,34 @@ std::string source_element(Document &doc, const std::string &tag, bool inner) {
   if (!found->end) throw std::string("source element has no explicit end tag: ") + tag;
   return inner ? doc.source.substr(found->inner_begin, found->inner_end - found->inner_begin)
                : doc.source.substr(found->begin, found->end - found->begin);
+}
+
+// Remove only explicit direct children of the selected source element. Comments,
+// raw text and identical markup nested inside authored content are not matches.
+std::string source_filtered(Document &doc, const std::string &tag, const std::string &omit) {
+  size_t root = std::string::npos, begin = 0, end = doc.source.size();
+  if (!tag.empty()) {
+    for (size_t i = 0; i < doc.source_ranges.size(); ++i) {
+      const auto &r = doc.source_ranges[i];
+      if (r.tag != tag) continue;
+      if (root != std::string::npos) throw std::string("source element is ambiguous: ") + tag;
+      if (!r.end) throw std::string("source element has no explicit end tag: ") + tag;
+      root = i; begin = r.inner_begin; end = r.inner_end;
+    }
+    if (root == std::string::npos) return "";
+  }
+  std::string out;
+  const std::string names = " " + omit + " ";
+  size_t cursor = begin;
+  for (const auto &r : doc.source_ranges) {
+    if (r.parent != root || r.begin < begin || r.begin >= end ||
+        names.find(" " + r.tag + " ") == std::string::npos) continue;
+    if (!r.end) throw std::string("source element has no explicit end tag: ") + r.tag;
+    out.append(doc.source, cursor, r.begin - cursor);
+    cursor = r.end;
+  }
+  out.append(doc.source, cursor, end - cursor);
+  return out;
 }
 
 // Cheap byte-level estimate before parsing: pathological nesting (hundreds of
