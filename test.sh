@@ -200,7 +200,8 @@ set +e; out="$("$TIMEOUT_CMD" 10 "$HOST" --dsl "$WORK/load-device.dslb" 2>&1)"; 
 [ "$code" = 3 ] && [[ "$out" == *'cannot read'* ]] || fail "device file not refused (exit $code): $out"
 ok "directories and device files refused by Html.load (exit 3)"
 
-if [ "$(id -u)" != 0 ]; then
+# chmod 000 does not make directories unreadable on NTFS.
+if [ "$(id -u)" != 0 ] && [[ "$UNAME_S" != MINGW* && "$UNAME_S" != MSYS* && "$UNAME_S" != CYGWIN* ]]; then
   mkdir -p "$WORK/locked/inner"; chmod 000 "$WORK/locked/inner"
   compile_chunk load-dir-locked 'html.load_dir("'"$WORK"'/locked");'
   set +e; out="$("$HOST" --dsl "$WORK/load-dir-locked.dslb" 2>&1)"; code=$?; set -e
