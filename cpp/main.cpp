@@ -51,11 +51,20 @@ lxb_dom_node_t *node_of(void *p, const char *who) {
   return node;
 }
 
+// Largest HTML file the host reads (guards against huge or endless inputs).
+constexpr std::uintmax_t kMaxHtmlBytes = 256u << 20;
+
 std::string read_file(const std::string &path) {
+  std::error_code ec;
+  // Directories, FIFOs and devices (/dev/zero) would read empty or forever.
+  if (!std::filesystem::is_regular_file(path, ec)) throw dslvm::Error("cannot read " + path);
+  if (std::filesystem::file_size(path, ec) > kMaxHtmlBytes && !ec)
+    throw dslvm::Error("cannot read " + path + ": larger than 256 MiB");
   std::ifstream in(path, std::ios::binary);
   if (!in) throw dslvm::Error("cannot read " + path);
   std::ostringstream data;
   data << in.rdbuf();
+  if (in.bad()) throw dslvm::Error("cannot read " + path);
   return data.str();
 }
 
@@ -142,6 +151,21 @@ Value not_yet(const char *name, const char *milestone) {
   throw dslvm::Error(std::string(name) + " is not implemented yet (" + milestone + ")");
 }
 
+// Host callbacks must surface every failure as a DSL error: lexbor wrappers
+// throw std::string, std::filesystem and allocation failures throw
+// std::exception; anything escaping main would abort the process.
+template <class F> Value translate_errors(F &&fn) {
+  try {
+    return fn();
+  } catch (const dslvm::Error &) {
+    throw;
+  } catch (const std::string &e) {
+    throw dslvm::Error(e);
+  } catch (const std::exception &e) {
+    throw dslvm::Error(e.what());
+  }
+}
+
 void checked_method(dslvm::Registry &registry, const char *type, const char *name,
                     std::vector<std::string> params, std::string returns,
                     dslvm::Method callback) {
@@ -160,7 +184,7 @@ void checked_method(dslvm::Registry &registry, const char *type, const char *nam
                         throw dslvm::Error(std::string(type) + "." + name + " argument " +
                                            std::to_string(i + 1) + " must be " + expected);
                     }
-                    return callback(object, args);
+                    return translate_errors([&] { return callback(object, args); });
                   });
 }
 
@@ -181,7 +205,7 @@ void checked_function(dslvm::Registry &r, const char *name, std::vector<std::str
         throw dslvm::Error(std::string(name) + " argument " + std::to_string(i + 1) +
                            " must be " + e);
     }
-    return fn(args);
+    return translate_errors([&] { return fn(args); });
   });
 }
 
@@ -295,11 +319,16 @@ void register_host(dslvm::Registry &r, Host &h) {
     if (!std::filesystem::is_directory(a[0].s, ec))
       throw dslvm::Error("Html.load_dir: not a directory: " + a[0].s);
     std::vector<std::string> files;
-    for (const auto &entry : std::filesystem::recursive_directory_iterator(a[0].s, ec)) {
-      if (!entry.is_regular_file()) continue;
-      std::string ext = entry.path().extension().string();
-      if (ext == ".html" || ext == ".htm") files.push_back(entry.path().string());
+    // Directory symlinks are not followed (no loops); unreadable directories
+    // are a clean error rather than a silently partial site.
+    std::filesystem::recursive_directory_iterator it(a[0].s, ec), end;
+    for (; !ec && it != end; it.increment(ec)) {
+      std::error_code entry_ec; // broken symlinks are skipped, not fatal
+      if (!it->is_regular_file(entry_ec)) continue;
+      std::string ext = it->path().extension().string();
+      if (ext == ".html" || ext == ".htm") files.push_back(it->path().string());
     }
+    if (ec) throw dslvm::Error("Html.load_dir: cannot list " + a[0].s + ": " + ec.message());
     std::sort(files.begin(), files.end());
     for (const auto &file : files) {
       if (h.docs.size() >= 4096) throw dslvm::Error("Doc object limit exceeded (4096)");

@@ -121,6 +121,23 @@ set +e; out="$("$HOST" --dsl "$WORK/missing-file.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'cannot read'* ]] || fail "missing file refusal (exit $code): $out"
 ok "missing HTML file refused (exit 3)"
 
+compile_chunk load-dir-as-file 'html.load("tests/fixtures/site");'
+set +e; out="$("$HOST" --dsl "$WORK/load-dir-as-file.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'cannot read'* ]] || fail "directory loaded as a page (exit $code): $out"
+compile_chunk load-device 'html.load("/dev/zero");'
+set +e; out="$(timeout 10 "$HOST" --dsl "$WORK/load-device.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'cannot read'* ]] || fail "device file not refused (exit $code): $out"
+ok "directories and device files refused by Html.load (exit 3)"
+
+if [ "$(id -u)" != 0 ]; then
+  mkdir -p "$WORK/locked/inner"; chmod 000 "$WORK/locked/inner"
+  compile_chunk load-dir-locked 'html.load_dir("'"$WORK"'/locked");'
+  set +e; out="$("$HOST" --dsl "$WORK/load-dir-locked.dslb" 2>&1)"; code=$?; set -e
+  chmod 755 "$WORK/locked/inner"
+  [ "$code" = 3 ] && [[ "$out" == *'cannot list'* ]] || fail "unreadable subdirectory not a clean error (exit $code): $out"
+  ok "Html.load_dir on an unreadable subdirectory is a clean error (exit 3)"
+fi
+
 compile_chunk not-implemented 'html.parse("<p>x</p>").classes_used();'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"
