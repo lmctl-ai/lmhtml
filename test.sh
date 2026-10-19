@@ -12,6 +12,9 @@ command -v timeout >/dev/null 2>&1 || TIMEOUT_CMD=gtimeout
 stat_size(){ stat -c %s "$1" 2>/dev/null || stat -f%z "$1"; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/lmhtml-test-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
+# Native Windows binaries cannot address git-bash /tmp paths; MSYS bash
+# handles drive-letter paths fine both ways.
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) WORK="$(cygpath -m "$WORK")";; esac
 pass=0
 ok(){ pass=$((pass+1)); echo "ok $pass - $1"; }
 fail(){ echo "FAIL: $*" >&2; exit 1; }
@@ -152,7 +155,7 @@ ok "link check rerun is byte-identical (deterministic)"
 ok "multiple bytecode files run sequentially against one embedded schema"
 
 SCHEMA_PATH="$HERE/schema/lmhtml.dsl.json"
-case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) SCHEMA_PATH="$(cygpath -w "$SCHEMA_PATH")";; esac
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) SCHEMA_PATH="$(cygpath -m "$SCHEMA_PATH")";; esac
 compile_chunk() { # name body
   cat > "$WORK/$1.lms" <<EOF2
 p = _dsl_ schema="$SCHEMA_PATH";
@@ -582,7 +585,10 @@ diff -u "$WORK/link-kinds.expected" "$WORK/link-kinds.txt" || fail "link_kind cl
 ok "link_kind: uppercase scheme, tab/newline in scheme, backslash hosts, .HTML, base href"
 
 # load_dir patterns: ./ prefix, absolute-below-dir, **/ zero dirs, escapes refused.
+# Canonicalize: macOS /var is a symlink to /private/var, which would break
+# the absolute-pattern prefix check below.
 G="$WORK/globsite"; mkdir -p "$G/blog/2024"
+G="$(cd "$G" && pwd -P)"
 for f in index.html blog/post.html blog/2024/old.html; do echo '<p>x</p>' > "$G/$f"; done
 compile_chunk load-dir-globs 'let n = 0;
 n = n + html.load_dir("'"$G"'", "./blog/*", "").len();
