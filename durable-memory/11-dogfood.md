@@ -64,17 +64,30 @@ readable.
 
 ## DSL/schema enhancements real usage suggests
 
-1. **Link kind classification**: script needs `out-of-root escape` vs
-   `hosting-noise` vs `truly broken` — today only `resolve()` + str_*
-   predicates. A `html.link_kind(url) -> string` would do.
-2. **Glob/regex matching** (`str_match(s, glob)`) for ignore-lists:
-   JS-hook class patterns (`language-*`, `fa-*`) should be filterable.
-3. **Aggregation**: the str_list()+str_union accumulator pattern works but a
-   host-side `DocList`-level `classes_used()` (site-wide in one call) would
-   kill the boilerplate.
-4. **common-part findings need a path/selector**, not just the tag name —
-   five "script shared by..." lines are indistinguishable.
-5. **load_dir include/exclude globs** (skip generated `_modules/` source
-   dumps on sphinx — 100+ pages of noise).
+1. ~~Link kind classification~~ **Done**: `html.link_kind(page, url)` →
+   `internal-page | internal-asset | anchor | external | special |
+   outside-root`.
+2. ~~Glob/regex matching~~ **Done**: `str_match(text, glob)` (`* ? [...]
+   [!...]`).
+3. ~~Aggregation~~ **Done**: `DocList.classes_used/css_classes/ids/css_ids`
+   site-wide in one call; the str_union path still works.
+4. ~~common-part findings need a path/selector~~ **Done**: findings carry
+   `html > body:nth-child(2) > nav.site-nav:nth-child(2)` style paths.
+5. ~~load_dir include/exclude globs~~ **Done**: `load_dir(dir, include,
+   exclude)` globs on dir-relative paths.
 6. **Per-page CSS caching**: same stylesheet re-parsed per page; fine at
    200 pages (0.9 s) but linear waste.
+
+## Before/after script policy (same three mirrors, re-run)
+
+| site | links before | links after | class-undefined before | after |
+|---|---|---|---|---|
+| rust-book | 66 | **0** | 513 | **11** |
+| jekyll | 1 | **1** (the real `team.md` bug kept) | 685 | **15** |
+| sphinx | 218 | **0** | 4683 | **193** |
+
+Policy cost: 3 lines in the link script (skip external/special/outside-root,
+plus 2 glob patterns `/ _/static`-style hosting noise), 1 line in the typo
+script (`language-*`, `fa-*`). Remaining lists are human-reviewable;
+jekyll's `cell-left (did you mean pull-left?)` is plausibly real legacy
+markup. No real-site content was committed anywhere.

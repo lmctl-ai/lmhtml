@@ -52,13 +52,20 @@ All work is an lmscript `_dsl_` chunk compiled against `schema/lmhtml.dsl.json`
 (see `examples/` for complete runnable scripts):
 
 1. **Broken links** — `examples/check-links.lms`: `html.load_dir(dir)` →
-   `Doc.links()` → `html.link_exists(page, url)` (relative links, `#anchors`,
-   `<base href>`, percent-encoding handled; external schemes are unchecked
-   and count as existing) → `report.add` + `report.write_text/json`.
-2. **CSS class/id typos** — `examples/class-typos.lms`: `Doc.classes_used()`
-   vs `Doc.css_classes()` (inline `<style>`), `Doc.ids()` vs `Doc.css_ids()`;
-   `str_difference(a, b)` is a host-side hash set; `suggest(name, candidates)`
-   gives edit-distance near misses.
+   `Doc.links()` (a/link/img/script/srcset) → policy via
+   `html.link_kind(page, url)` (`internal-page`, `internal-asset`, `anchor`,
+   `external`, `special`, `outside-root`) plus `str_match(url, glob)` for
+   hosting-noise patterns → `html.link_exists` → `report.add` +
+   `report.write_text/json`. `load_dir(dir, include, exclude)` filters pages
+   by glob on the dir-relative path.
+2. **CSS class/id typos** — `examples/class-typos.lms`: site-wide sets in one
+   call (`DocList.classes_used()` / `css_classes()` / `ids()` / `css_ids()`,
+   covering inline `<style>`, linked local stylesheets and `@media` blocks);
+   `str_difference` + `str_union` + `str_list` for custom set flow;
+   `suggest(name, candidates)` gives edit-distance near misses; ignore
+   JS-hook patterns with `str_match(name, "language-*")`. Glob syntax:
+   `*` any run (including `/`), `?` one char, `[...]` class with ranges,
+   `[!...]` negated class.
 3. **Structural diff** — `examples/diff-pages.lms`: `html.diff(a, b)` ignores
    whitespace/comment/attribute-order/`data-*` noise and emits
    `diff-added/removed/changed` findings with CSS-ish paths; `Node.hash()` is
