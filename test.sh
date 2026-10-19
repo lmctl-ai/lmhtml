@@ -517,11 +517,13 @@ for t in save-dir save-slash; do
   [ "$code" = 3 ] || fail "$t not refused (exit $code): $out"
 done
 [ ! -e "$OUTROOT/newdir" ] || fail "refused save left a directory behind"
-python3 -c "print('<p>' + 'x' * 300000 + '</p>')" > "$WORK/big-page.html"
-compile_chunk save-efbig 'html.save(html.load("'"$WORK"'/big-page.html"), "big.html");'
-set +e; out="$(cd "$OUTROOT" && trap '' XFSZ && ulimit -f 100 && "$HERE/$HOST" --dsl "$WORK/save-efbig.dslb" 2>&1)"; code=$?; set -e
-[ "$code" = 3 ] && [[ "$out" == *'failed writing'* ]] || fail "short write not reported (exit $code): $out"
-[ -z "$(ls -A "$OUTROOT" | grep -v -e '^sub$' -e '^mode.html$')" ] || fail "failed save left files: $(ls -A "$OUTROOT")"
+if [[ "$UNAME_S" != MINGW* && "$UNAME_S" != MSYS* && "$UNAME_S" != CYGWIN* ]]; then
+  python3 -c "print('<p>' + 'x' * 300000 + '</p>')" > "$WORK/big-page.html"
+  compile_chunk save-efbig 'html.save(html.load("'"$WORK"'/big-page.html"), "big.html");'
+  set +e; out="$(cd "$OUTROOT" && trap '' XFSZ && ulimit -f 100 && "$HERE/$HOST" --dsl "$WORK/save-efbig.dslb" 2>&1)"; code=$?; set -e
+  [ "$code" = 3 ] && [[ "$out" == *'failed writing'* ]] || fail "short write not reported (exit $code): $out"
+  [ -z "$(ls -A "$OUTROOT" | grep -v -e '^sub$' -e '^mode.html$')" ] || fail "failed save left files: $(ls -A "$OUTROOT")"
+fi
 ok "save: planted temp symlink harmless, mode kept, dir/slash refused, failed write leaves no temp"
 
 # Mutation guards: deep fragments (parser stall / recursion crash), attribute
