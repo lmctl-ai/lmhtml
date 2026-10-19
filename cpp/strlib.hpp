@@ -21,6 +21,10 @@ int64_t len(const std::string &s); // bytes
 std::vector<std::string> difference(const std::vector<std::string> &a,
                                     const std::vector<std::string> &b);
 
+// Union of a and b; order of a then new items of b, duplicates removed.
+std::vector<std::string> set_union(const std::vector<std::string> &a,
+                                   const std::vector<std::string> &b);
+
 // Near-miss suggestions for name among candidates: Damerau-Levenshtein
 // (OSA) distance <= max(1, len/4), sorted by distance then alphabetically.
 std::vector<std::string> suggest(const std::string &name,

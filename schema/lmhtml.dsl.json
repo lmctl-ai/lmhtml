@@ -71,6 +71,8 @@
   "functions": {
     "suggest": [{ "params": ["string", "StrList"], "returns": "StrList" }],
     "str_difference": [{ "params": ["StrList", "StrList"], "returns": "StrList" }],
+    "str_union": [{ "params": ["StrList", "StrList"], "returns": "StrList" }],
+    "str_list": [{ "params": [], "returns": "StrList" }],
     "str_starts_with": [{ "params": ["string", "string"], "returns": "bool" }],
     "str_ends_with": [{ "params": ["string", "string"], "returns": "bool" }],
     "str_contains": [{ "params": ["string", "string"], "returns": "bool" }],

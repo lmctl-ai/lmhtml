@@ -1,5 +1,7 @@
 .from-ext { color: red; }
 #ext-id { margin: 0; }
+@font-face { font-family: "X"; src: url(x.woff2); }
+@bogus-at-rule { .never-harvested {} }
 @media screen and (min-width: 600px) {
   .in-media { color: blue; }
   #media-id { padding: 0; }

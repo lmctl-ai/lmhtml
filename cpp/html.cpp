@@ -377,7 +377,9 @@ static void harvest_rules(const lxb_css_rule_list_t *rules,
       harvest_selector_list(lxb_css_rule_style(rule)->selector, classes, ids);
     else if (rule->type == LXB_CSS_RULE_AT_RULE) {
       auto *at = reinterpret_cast<lxb_css_rule_at_t *>(rule);
-      if (at->u.media) harvest_rules(at->u.media->block, classes, ids);
+      // the payload union differs per at-rule kind; only @media has rule lists
+      if (at->type == LXB_CSS_AT_RULE_MEDIA && at->u.media)
+        harvest_rules(at->u.media->block, classes, ids);
     }
   }
 }

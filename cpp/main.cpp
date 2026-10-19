@@ -740,6 +740,13 @@ void register_host(dslvm::Registry &r, Host &h) {
     auto &excl = *self<std::vector<std::string>>(a[1].obj);
     return h.hold(h.str_lists, "StrList", lmhtml::strlib::difference(incl, excl));
   });
+  checked_function(r, "str_union", {"StrList", "StrList"}, "StrList", [&h](Args &a) {
+    auto &left = *self<std::vector<std::string>>(a[0].obj);
+    auto &right = *self<std::vector<std::string>>(a[1].obj);
+    return h.hold(h.str_lists, "StrList", lmhtml::strlib::set_union(left, right));
+  });
+  checked_function(r, "str_list", {}, "StrList",
+                   [&h](Args &) { return h.hold(h.str_lists, "StrList", std::vector<std::string>{}); });
   checked_function(r, "str_starts_with", {"string", "string"}, "bool",
                    [](Args &a) { return Value::boolean(lmhtml::strlib::starts_with(a[0].s, a[1].s)); });
   checked_function(r, "str_ends_with", {"string", "string"}, "bool",

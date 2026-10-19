@@ -85,16 +85,16 @@ ok "JSON report matches expected findings"
 
 "$HOST" --dsl build/class-typos.dslb >"$WORK/typos.jsonl" || fail "class-typos run"
 cat > "$WORK/expected-typos.txt" <<'EOF'
-id-unused tests/fixtures/site/about.html:0: teem (did you mean team?)
 class-undefined tests/fixtures/site/index.html:0: usde (did you mean used?)
-class-unused tests/fixtures/site/index.html:0: footr
+class-unused site:0: footr
+id-unused site:0: teem (did you mean team?)
 EOF
 cmp "$WORK/expected-typos.txt" build/classes.txt || fail "class/id typo report differs from expected findings"
 python3 - <<'PY'
 import json
 data=json.load(open('build/classes.json'))
 kinds=[f['kind'] for f in data['findings']]
-assert kinds==['id-unused','class-undefined','class-unused'], kinds
+assert kinds==['class-undefined','class-unused','id-unused'], kinds
 print('typo JSON report: 3 findings, well-formed')
 PY
 ok "class/id typo findings match expected exactly (text and JSON)"
@@ -311,6 +311,7 @@ if (str_lower(s) != "hello world") { report.add("bug", "f", 0, "lower"); }
 if (str_substr(s, 6, 3) != "Wor") { report.add("bug", "f", 0, "substr"); }
 if (str_substr(s, -5, 100) != s) { report.add("bug", "f", 0, "substr clamp"); }
 if (str_len(s) != 11) { report.add("bug", "f", 0, "len"); }
+if (str_union(str_list(), str_list()).len() != 0) { report.add("bug", "f", 0, "union empty"); }
 report.add("strlib", "ok", 0, "checked"); report.write_text("'"$WORK"'/strlib.txt");'
 "$HOST" --dsl "$WORK/strlib.dslb" >/dev/null || fail "strlib chunk run"
 [ "$(cat "$WORK/strlib.txt")" = "strlib ok:0: checked" ] || fail "str_* helpers misbehave: $(cat "$WORK/strlib.txt")"

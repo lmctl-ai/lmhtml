@@ -41,6 +41,16 @@ std::vector<std::string> difference(const std::vector<std::string> &a,
   return out;
 }
 
+std::vector<std::string> set_union(const std::vector<std::string> &a,
+                                   const std::vector<std::string> &b) {
+  std::unordered_set<std::string> seen;
+  std::vector<std::string> out;
+  for (const auto *list : {&a, &b})
+    for (const auto &item : *list)
+      if (seen.insert(item).second) out.push_back(item);
+  return out;
+}
+
 static int edit_distance(const std::string &a, const std::string &b) {
   const size_t n = a.size(), m = b.size();
   std::vector<int> prev(m + 1), curr(m + 1), before(m + 1);
