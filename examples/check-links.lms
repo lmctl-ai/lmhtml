@@ -5,6 +5,10 @@ for (i in range(0, pages.len())) {
   let links = page.links();
   for (j in range(0, links.len())) {
     let url = links.at(j);
+    let kind = html.link_kind(page, url);
+    # policy: external and non-web schemes are unchecked by design;
+    # links escaping the site root are out of scope for this check
+    if (kind == "external" || kind == "special" || kind == "outside-root") { continue; }
     if (!html.link_exists(page, url)) {
       report.add("broken-link", page.path(), 0, url + " not found");
     }

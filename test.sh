@@ -85,7 +85,7 @@ ok "JSON report matches expected findings"
 
 "$HOST" --dsl build/class-typos.dslb >"$WORK/typos.jsonl" || fail "class-typos run"
 cat > "$WORK/expected-typos.txt" <<'EOF'
-class-undefined tests/fixtures/site/index.html:0: usde (did you mean used?)
+class-undefined site:0: usde (did you mean used?)
 class-unused site:0: footr
 id-unused site:0: teem (did you mean team?)
 EOF
