@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -630,6 +631,26 @@ void register_host(dslvm::Registry &r, Host &h) {
       throw dslvm::Error("DocList.at index out of range");
     return Value::object("Doc", docs[static_cast<size_t>(a[0].i)]);
   });
+  // Site-wide aggregation: one call instead of the script-side str_union loop.
+  auto aggregate = [&h, css_resolver](void *p, int what) {
+    auto &pages = *self<std::vector<lmhtml::Document *>>(p);
+    std::set<std::string> all;
+    for (auto *doc : pages) {
+      std::vector<std::string> names, other;
+      switch (what) {
+      case 0: names = lmhtml::classes_used(*doc); break;
+      case 1: lmhtml::css_names(*doc, names, other, css_resolver(doc)); break;
+      case 2: names = lmhtml::ids_used(*doc); break;
+      case 3: lmhtml::css_names(*doc, other, names, css_resolver(doc)); break;
+      }
+      all.insert(names.begin(), names.end());
+    }
+    return h.hold(h.str_lists, "StrList", std::vector<std::string>(all.begin(), all.end()));
+  };
+  checked_method(r, "DocList", "classes_used", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 0); });
+  checked_method(r, "DocList", "css_classes", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 1); });
+  checked_method(r, "DocList", "ids", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 2); });
+  checked_method(r, "DocList", "css_ids", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 3); });
 
   checked_method(r, "Html", "load", {"string"}, "Doc", [&h](void *, Args &a) {
     auto doc = lmhtml::parse_html(read_file(a[0].s), a[0].s);
@@ -637,31 +658,42 @@ void register_host(dslvm::Registry &r, Host &h) {
     h.docs.push_back(std::move(doc));
     return Value::object("Doc", h.docs.back().get());
   });
-  checked_method(r, "Html", "load_dir", {"string"}, "DocList", [&h](void *, Args &a) {
+  auto load_dir_impl = [&h](const std::string &dir, const std::string &include,
+                            const std::string &exclude) {
     std::vector<lmhtml::Document *> pages;
     std::error_code ec;
-    if (!std::filesystem::is_directory(a[0].s, ec))
-      throw dslvm::Error("Html.load_dir: not a directory: " + a[0].s);
+    if (!std::filesystem::is_directory(dir, ec))
+      throw dslvm::Error("Html.load_dir: not a directory: " + dir);
     std::vector<std::string> files;
     // Directory symlinks are not followed (no loops); unreadable directories
     // are a clean error rather than a silently partial site.
-    std::filesystem::recursive_directory_iterator it(a[0].s, ec), end;
+    std::filesystem::recursive_directory_iterator it(dir, ec), end;
     for (; !ec && it != end; it.increment(ec)) {
       std::error_code entry_ec; // broken symlinks are skipped, not fatal
       if (!it->is_regular_file(entry_ec)) continue;
       std::string ext = it->path().extension().string();
-      if (ext == ".html" || ext == ".htm") files.push_back(it->path().string());
+      if (ext != ".html" && ext != ".htm") continue;
+      std::string rel = it->path().lexically_relative(dir).string();
+      if (!include.empty() && include != "*" && !lmhtml::strlib::match(rel, include)) continue;
+      if (!exclude.empty() && lmhtml::strlib::match(rel, exclude)) continue;
+      files.push_back(it->path().string());
     }
-    if (ec) throw dslvm::Error("Html.load_dir: cannot list " + a[0].s + ": " + ec.message());
+    if (ec) throw dslvm::Error("Html.load_dir: cannot list " + dir + ": " + ec.message());
     std::sort(files.begin(), files.end());
     for (const auto &file : files) {
       if (h.docs.size() >= 4096) throw dslvm::Error("Doc object limit exceeded (4096)");
       h.docs.push_back(lmhtml::parse_html(read_file(file), file));
       pages.push_back(h.docs.back().get());
-      h.dir_roots[pages.back()] = a[0].s;
+      h.dir_roots[pages.back()] = dir;
     }
     return h.hold(h.doc_lists, "DocList", std::move(pages));
-  });
+  };
+  checked_method(r, "Html", "load_dir", {"string"}, "DocList",
+                 [load_dir_impl](void *, Args &a) { return load_dir_impl(a[0].s, "", ""); });
+  checked_method(r, "Html", "load_dir", {"string", "string", "string"}, "DocList",
+                 [load_dir_impl](void *, Args &a) {
+                   return load_dir_impl(a[0].s, a[1].s, a[2].s);
+                 });
   checked_method(r, "Html", "parse", {"string"}, "Doc", [&h](void *, Args &a) {
     try {
       if (h.docs.size() >= 4096) throw dslvm::Error("Doc object limit exceeded (4096)");

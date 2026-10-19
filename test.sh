@@ -350,6 +350,30 @@ EOF
 cmp "$WORK/link-kind.expected" "$WORK/link-kind.txt" || fail "link_kind classification wrong: $(cat "$WORK/link-kind.txt")"
 ok "link_kind classifies page/asset/anchor/external/special/outside-root"
 
+compile_chunk load-glob 'let all = html.load_dir("tests/fixtures/site");
+let no_sub = html.load_dir("tests/fixtures/site", "", "sub/*");
+let only_index = html.load_dir("tests/fixtures/site", "index.html", "");
+report.add("g", "all", 0, str(all.len()));
+report.add("g", "nosub", 0, str(no_sub.len()));
+report.add("g", "only", 0, str(only_index.len()));
+report.add("g", "classes", 0, str(all.classes_used().len()));
+report.add("g", "css", 0, str(all.css_classes().len()));
+report.add("g", "ids", 0, str(all.ids().len()));
+report.add("g", "cssids", 0, str(all.css_ids().len()));
+report.write_text("'"$WORK"'/load-glob.txt");'
+"$HOST" --dsl "$WORK/load-glob.dslb" >/dev/null || fail "load-glob run"
+cat > "$WORK/load-glob.expected" <<'EOF'
+g all:0: 3
+g nosub:0: 2
+g only:0: 1
+g classes:0: 3
+g css:0: 3
+g ids:0: 2
+g cssids:0: 1
+EOF
+cmp "$WORK/load-glob.expected" "$WORK/load-glob.txt" || fail "load_dir globs / DocList aggregation wrong: $(cat "$WORK/load-glob.txt")"
+ok "load_dir include/exclude globs and DocList site-wide classes_used/css_classes/ids/css_ids"
+
 python3 - "$WORK" <<'PY'
 import pathlib,sys
 w=pathlib.Path(sys.argv[1])

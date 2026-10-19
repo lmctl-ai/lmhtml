@@ -45,13 +45,18 @@
     "DocList": {
       "methods": {
         "len": [{ "params": [], "returns": "int" }],
-        "at": [{ "params": ["int"], "returns": "Doc" }]
+        "at": [{ "params": ["int"], "returns": "Doc" }],
+        "classes_used": [{ "params": [], "returns": "StrList" }],
+        "css_classes": [{ "params": [], "returns": "StrList" }],
+        "ids": [{ "params": [], "returns": "StrList" }],
+        "css_ids": [{ "params": [], "returns": "StrList" }]
       }
     },
     "Html": {
       "methods": {
         "load": [{ "params": ["string"], "returns": "Doc" }],
-        "load_dir": [{ "params": ["string"], "returns": "DocList" }],
+        "load_dir": [{ "params": ["string"], "returns": "DocList" },
+                     { "params": ["string", "string", "string"], "returns": "DocList" }],
         "parse": [{ "params": ["string"], "returns": "Doc" }],
         "save": [{ "params": ["Doc", "string"], "returns": "void" }],
         "resolve": [{ "params": ["Doc", "string"], "returns": "string" }],
