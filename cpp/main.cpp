@@ -507,13 +507,17 @@ int main(int argc, char **argv) {
   dslvm::Context context;
   context.set("html", &host);
   context.set("report", &host.report);
+  // Load and verify every file first: a missing or corrupt later file must
+  // not leave the earlier blocks' output half-written.
+  std::vector<dslvm::Program> programs;
   for (int i = 2; i < argc; i++) {
-    dslvm::Program program;
     try {
-      program = dslvm::Program::load(dslvm::read_file(argv[i]), schema, reg);
+      programs.push_back(dslvm::Program::load(dslvm::read_file(argv[i]), schema, reg));
     } catch (const dslvm::Error &error) {
       return dslvm::report_error("load", error);
     }
+  }
+  for (const auto &program : programs) {
     try {
       program.run(context, reg);
     } catch (const dslvm::Error &error) {

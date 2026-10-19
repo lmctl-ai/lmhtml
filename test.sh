@@ -173,6 +173,11 @@ set +e; "$HOST" --dsl "$WORK/stop-first.dslb" "$WORK/stop-fail.dslb" "$WORK/stop
 [ "$code" = 3 ] && [ -f "$WORK/stop.txt" ] && [ ! -f "$WORK/later.txt" ] || fail "stop-on-failure semantics broken (exit $code)"
 ok "shared state, ordered blocks, stop at first failure"
 
+rm -f "$WORK/stop.txt"
+set +e; out="$("$HOST" --dsl "$WORK/stop-first.dslb" "$WORK/no-such.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'"phase": "load"'* ]] && [ ! -f "$WORK/stop.txt" ] || fail "later missing bytecode did not stop the run before block 1 (exit $code): $out"
+ok "all bytecode files load before the first block runs"
+
 python3 - "$WORK" <<'PY'
 import pathlib,sys
 p=bytearray(pathlib.Path('build/check-links.dslb').read_bytes())
