@@ -1,13 +1,10 @@
 # Schema v0
 
 Form: `"dsl.schema": 2` (array-of-overloads signatures), bytecode v5 — the form
-the **current** lmscript compiler (`dsl.ts`, lmctl-mono) accepts
-(`DSL_VERSION = 5`, schema-1 singletons refused). Validated for real, not
-guessed: a scratch copy of lmcad's adapter approach (Node
-`--experimental-strip-types`, importing `dsl.ts` directly) ran
-`parseDslSchema` + `compileDsl` on the exact JSON below plus two chunks
-(explicit loops and `foreach` over a `NodeList`): **schema OK, 37 canonical
-signatures, chunks compile to DSLB v5 bytecode** (1193 and 1024 bytes).
+the published lmscript compiler accepts
+(`DSL_VERSION = 5`, schema-1 singletons refused). Validated with the published compiler: the exact JSON below has 37 canonical
+signatures, and example chunks using explicit loops and `foreach` over a
+`NodeList` compile to DSLB v5 bytecode.
 
 ## Host/script split
 
@@ -24,7 +21,7 @@ signatures, chunks compile to DSLB v5 bytecode** (1193 and 1024 bytes).
 
 `NodeList`, `StrList`, `DocList` are plain host object types with
 `len() -> int` + `at(int) -> T` — the compiler lowers `foreach` onto that
-protocol (verified above). No bytecode collections exist (R31).
+protocol (verified above). Collection handles are schema-defined host objects; bytecode has no list or map value types.
 
 ## Use-case coverage map
 

@@ -26,5 +26,6 @@ PY
 then
   printf '%s\n' "$candidate"
 else
-  printf '%s\n' "$HERE/scripts/lmscript-mono.sh"
+  echo "error: no DSL v5 compiler found; install @lmctl-ai/lmctl so lmscript is on PATH, or set LMSCRIPT_BIN" >&2
+  exit 2
 fi

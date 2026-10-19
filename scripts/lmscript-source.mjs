@@ -1,25 +1,27 @@
 #!/usr/bin/env node
-// A narrow adapter for compiling _dsl_ blocks with the in-tree lmscript compiler
-// when the full mono CLI dependencies have not been installed. It imports dsl.ts
-// directly and never writes to the lmctl-mono checkout.
+// A narrow adapter for compiling _dsl_ blocks from a lmscript source checkout.
+// Public users should use the published lmscript CLI instead.
 import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 import {basename, dirname, resolve, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {homedir} from 'node:os';
 
-const sourceRoot = resolve(process.env.LMSCRIPT_SOURCE ?? join(homedir(), 'lmctl-mono/lmscript'));
+if (!process.env.LMSCRIPT_SOURCE) {
+  console.error('error: source adapter requires LMSCRIPT_SOURCE; install @lmctl-ai/lmctl and use lmscript for normal builds');
+  process.exit(2);
+}
+const sourceRoot = resolve(process.env.LMSCRIPT_SOURCE);
 let dsl;
 try {
   dsl = await import(pathToFileURL(join(sourceRoot, 'dsl.ts')).href);
   if (dsl.DSL_VERSION !== 5) throw new Error(`expected DSL v5, found v${dsl.DSL_VERSION}`);
 } catch (error) {
-  console.error(`error: cannot load DSL v5 compiler from ${sourceRoot}; set LMSCRIPT_SOURCE to the lmscript source directory. ${error.message}`);
+  console.error(`error: cannot load DSL v5 compiler from LMSCRIPT_SOURCE=${sourceRoot}. ${error.message}`);
   process.exit(2);
 }
 const args = process.argv.slice(2);
 
 if (args.length === 1 && ['--version', '-v'].includes(args[0])) {
-  console.log(`lmscript mono DSL v${dsl.DSL_VERSION} (${sourceRoot}/dsl.ts)`);
+  console.log(`lmscript DSL v${dsl.DSL_VERSION} (${sourceRoot}/dsl.ts)`);
   process.exit(0);
 }
 if (args[0] === '--dsl-signatures') {
@@ -30,7 +32,7 @@ if (args[0] === '--dsl-signatures') {
   process.exit(0);
 }
 if (args.length < 1 || args.length > 2 || args[0].startsWith('-')) {
-  console.error('usage: lmscript-mono <source.lms> [output.dslb]');
+  console.error('usage: lmscript-source <source.lms> [output.dslb]');
   process.exit(2);
 }
 

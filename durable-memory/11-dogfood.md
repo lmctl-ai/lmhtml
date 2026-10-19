@@ -88,6 +88,6 @@ readable.
 
 Policy cost: 3 lines in the link script (skip external/special/outside-root,
 plus 2 glob patterns `/ _/static`-style hosting noise), 1 line in the typo
-script (`language-*`, `fa-*`). Remaining lists are human-reviewable;
+script (`language-*`, `fa-*`). Remaining lists are easy to inspect;
 jekyll's `cell-left (did you mean pull-left?)` is plausibly real legacy
 markup. No real-site content was committed anywhere.

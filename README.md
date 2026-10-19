@@ -1,5 +1,9 @@
 # lmhtml
 
+## Status
+
+Experimental. The CLI, schema, and script API are evolving; bytecode v5 and schema v2 are required.
+
 A single self-contained native CLI for bulk HTML work (broken links, CSS
 class/id typos, structural diff, shared-part extraction and rewrite), built
 on lexbor and scriptable with lmscript `_dsl_` bytecode via the vendored
@@ -10,8 +14,9 @@ cpp-dsl-sdk header. See `durable-memory/` for design notes.
 - C++17 toolchain, CMake >= 3.24, Ninja
 - An lmscript compiler that emits DSL bytecode v5: `npm i -g @lmctl-ai/lmctl`
   (Node 22+) puts `lmscript` on PATH; `scripts/select-compiler.sh` probes it.
-  (Maintainers can instead point `LMSCRIPT_SOURCE` at a local lmscript source
-  checkout for `scripts/lmscript-mono.sh`; those sources are not public.)
+  Set `LMSCRIPT_BIN` to select an explicit compiler executable. For local
+  compiler-source development, set `LMSCRIPT_SOURCE` and use
+  `scripts/lmscript-source.sh` directly.
 - Python 3 (test assertions only)
 
 ## Setup
@@ -21,14 +26,14 @@ scripts/sync-sdk.sh      # vendor cpp/dslvm.hpp per sdk.lock
 scripts/sync-lexbor.sh   # clone lexbor into third_party/ per lexbor.lock
 ```
 
-## Build and run
+## Build
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j2
 
-scripts/select-compiler.sh examples/check-links.lms  # resolves the compiler
-scripts/lmscript-mono.sh examples/check-links.lms build/check-links.dslb
+scripts/select-compiler.sh  # prints the compatible compiler path
+lmscript examples/check-links.lms build/check-links.dslb
 build/lmhtml --dsl build/check-links.dslb
 ```
 

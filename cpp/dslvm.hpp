@@ -11,7 +11,7 @@
 //                                        type, fn), method(type, name, {param types}, return type, fn), context(name, type); entries are
 //                                        keyed by canonical signature, distinct parameter tuples overload a name, and duplicate parameter
 //                                        tuples are refused; signatures() lists the canonical strings `lmscript --dsl-signatures SCHEMA` prints, so a
-//                                        host test diffs registry and schema (spec v4 S0, a consistency check between two sources of truth,
+//                                        host test diffs registry and schema (a consistency check between two sources of truth,
 //                                        not a run-time defense: the VM checks nothing at call time)
 //   dslvm::Context                       the live objects of one run: set(name, pointer)
 //   dslvm::Program::load(bytes, schema, registry)  parses, binds and verifies; throws before anything runs. The Program keeps
@@ -234,9 +234,9 @@ enum Op : uint8_t {
   NEG_I = 0x1B, NEG_F = 0x1C, LT_I = 0x1D, LE_I = 0x1E, GT_I = 0x1F, GE_I = 0x20, LT_F = 0x21, LE_F = 0x22, GT_F = 0x23, GE_F = 0x24, I2F = 0x25,
   // v3: string concatenation and str() conversions
   CONCAT = 0x26, I2S = 0x27, F2S = 0x28, B2S = 0x29,
-  // v4 (spec S4): portable primitive math.  The operand is a one-byte function id.
+  // Portable primitive math. The operand is a one-byte function id.
   MATH = 0x32,
-  // v4 (spec S1'): integer remainder (the dividend's sign; zero divisor is a run-time error).
+  // Integer remainder (the dividend's sign; zero divisor is a run-time error).
   MOD_I = 0x33,
   FOR_RANGE = 0x2f, FOR_NEXT = 0x31,
   // v5: structured while loop markers. LOOP_BACK is the only general backward edge.

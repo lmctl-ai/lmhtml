@@ -5,15 +5,14 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 
 ## Toolchain
 
-- cpp-dsl-sdk vendored header pinned by `sdk.lock` at commit `b8fd2858`
+- cpp-dsl-sdk vendored header pinned by `sdk.lock` at commit `4283cf33`
   (bytecode v5); `scripts/sync-sdk.sh --verify` is the first test check.
 - lexbor pinned by `lexbor.lock` at `f4cbbcd9`, shallow-fetched into
   git-ignored `third_party/lexbor` by `scripts/sync-lexbor.sh`
   (`--verify` is the second test check).
 - Compiler: `scripts/select-compiler.sh` probes a real chunk and requires
-  `DSLB\x00\x05`; falls back to `scripts/lmscript-mono.sh` (Node
-  `--experimental-strip-types`, imports a local lmscript `dsl.ts` (`LMSCRIPT_SOURCE`),
-  refuses any `DSL_VERSION` other than 5).
+  `DSLB\x00\x05`; requires a compatible compiler on `PATH` or an explicit `LMSCRIPT_BIN`. The optional
+  source adapter requires an explicit `LMSCRIPT_SOURCE` path and accepts version 5 only.
 
 ## Build
 
@@ -26,7 +25,7 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 
 ## Tests
 
-`./test.sh` → **PASS: 23 checks** (release and sanitize alike):
+`./test.sh` → **PASS: 56 checks** (release and sanitize alike):
 
 1. sdk.lock + lexbor.lock pin verification.
 2. check-links.lms compiles as bytecode v5 via the probed compiler.

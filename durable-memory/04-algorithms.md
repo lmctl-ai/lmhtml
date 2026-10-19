@@ -80,7 +80,7 @@ template with slots for the varying parts.
 6. Output: template file + findings (one per common part, with page coverage
    `m of n`). Return value = number of slots.
 
-Emission details (review fixes): the skeleton's `<!DOCTYPE>` is kept;
+Emission details (correctness fixes): the skeleton's `<!DOCTYPE>` is kept;
 non-blank text directly inside a varying-but-recursed element becomes a
 `<!-- slot:text-N -->` (never the skeleton page's own words); attributes of
 recursed elements (e.g. `<body class="page-x">`) still come from the

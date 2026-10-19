@@ -7,10 +7,10 @@ Each milestone ends green: `test.sh` PASS, committed, pushed.
 - **M1 — skeleton + link check** (end-to-end first):
   repo scaffolding mirroring lmcad (`scripts/sync-sdk.sh` + `sdk.lock`,
   `scripts/sync-lexbor.sh` + `lexbor.lock` per 02-lexbor-static.md,
-  `scripts/lmscript-mono.{sh,mjs}` adapter, CMake with embedded
+  `scripts/lmscript-source.{sh,mjs}` adapter, CMake with embedded
   `schema/lmhtml.dsl.json`, `-static-libstdc++ -static-libgcc` +
   `LMHTML_FULL_STATIC`); C++ host with arena-owned `Doc`/`Node` handles and
-  hand-written arg checking (R33/R34 — the VM checks nothing at call time);
+  host-side argument validation (the VM trusts compiler-produced bytecode);
   schema subset: `load`/`load_dir`/`select`/`attr`/`links`/`resolve`/
   `link_exists`/`Report`; examples `check-links.lms`.
   Done = script → bytecode → host → text+JSON report on a fixture site with
@@ -61,7 +61,7 @@ heredocs, everything through the real compile→run pipeline.
 - **String contains/starts_with/regex**: scripts currently can't filter
   links or class names by pattern; today they must push everything through
   host methods. Likely the first real ask (host functions can fill the gap).
-- **Lists/maps in the language**: R31 forbids them; the `StrList` host
+- **Lists/maps in the language**: the language has no built-in list or map values; the `StrList` host
   object pattern works but `suggest` returning `StrList` then intersecting
   two host lists from script is clumsy — watch pain level in M2.
 - **Line/column in DOM**: would need lexbor parse instrumentation; biggest

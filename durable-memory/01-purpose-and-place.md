@@ -15,10 +15,8 @@ embedded schema; the host executes the bytecode and owns all state.
 - **cpp-dsl-sdk** (`include/dslvm.hpp`, header-only, bytecode v5) is vendored as
   a single header `cpp/dslvm.hpp`, pinned by `sdk.lock` (repo/commit/sha256),
   exactly like lmcad. It executes `_dsl_` bytecode; it never parses HTML.
-- **lmscript** (lmctl-mono, not public; published via npm `@lmctl-ai/lmctl`) compiles `_dsl_` chunks
-  against `schema/lmhtml.dsl.json` into `.dslb` bytecode. Tests compile through
-  a thin Node `--experimental-strip-types` adapter importing `dsl.ts`, the same
-  approach as lmcad's `scripts/lmscript-mono.{sh,mjs}`.
+- **lmscript**, published via npm as `@lmctl-ai/lmctl`, compiles `_dsl_` chunks
+  against `schema/lmhtml.dsl.json` into `.dslb` bytecode. Tests use the published compiler selected by `scripts/select-compiler.sh`. A source adapter is available for local compiler development when `LMSCRIPT_SOURCE` is set explicitly.
 - **lmcad / lmor-dsl** are the sibling hosts whose conventions lmhtml copies:
   one binary, schema embedded at compile time, `--dsl` runs bytecode files,
   `--schema` prints the embedded schema, `--dsl-signatures` for parity checks,

@@ -2,7 +2,7 @@
 
 Machine checked (2026-10-19), same box. Measured.
 
-## Depth guard (review fix, landed before M3)
+## Depth guard (correctness fix, landed before M3)
 
 Documents nested deeper than **512** elements are refused with a clean DSL
 error naming the file (`nesting depth exceeds 512 in FILE`). Two layers: a
