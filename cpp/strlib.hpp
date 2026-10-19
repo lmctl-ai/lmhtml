@@ -16,9 +16,11 @@ std::string lower(const std::string &s);
 std::string substr(const std::string &s, int64_t start, int64_t length);
 int64_t len(const std::string &s); // bytes
 
-// Glob match: `*` any run (including /), `?` one char, `[...]` char class
-// with ranges and `[!...]` negation. Literal otherwise. UTF-8 bytes are
-// compared as bytes (fine for ASCII patterns over ASCII names).
+// Glob match: `*` any run (including /), `?` one byte, `[...]` byte class
+// with ranges and `[!...]` negation (`]` first is literal; an unterminated
+// `[` is a literal '['), `\x` a literal x. Bytes, not code points: `?`
+// matches one byte of a multi-byte UTF-8 character. Worst case
+// O(|text|*|pattern|), capped at 2^27 steps (throws std::string beyond).
 bool match(const std::string &text, const std::string &pattern);
 
 // Items of a that are not in b; order of a kept, duplicates removed.

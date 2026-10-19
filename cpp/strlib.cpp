@@ -1,5 +1,6 @@
 #include "strlib.hpp"
 #include <algorithm>
+#include <cstdint>
 #include <unordered_set>
 
 namespace lmhtml::strlib {
@@ -31,39 +32,67 @@ std::string substr(const std::string &s, int64_t start, int64_t length) {
 
 int64_t len(const std::string &s) { return static_cast<int64_t>(s.size()); }
 
+namespace {
+// Does the single pattern element at p (not '*') match byte c? Sets `next`
+// to the index after the element. `\x` is a literal x; `[` without a closing
+// `]` is a literal '[' (fnmatch); `[z-a]` is an empty range.
+bool element_matches(const std::string &pat, size_t p, unsigned char c, size_t &next) {
+  if (pat[p] == '\\' && p + 1 < pat.size()) {
+    next = p + 2;
+    return static_cast<unsigned char>(pat[p + 1]) == c;
+  }
+  if (pat[p] == '?') { next = p + 1; return true; }
+  if (pat[p] == '[') {
+    size_t q = p + 1;
+    bool negate = q < pat.size() && pat[q] == '!';
+    if (negate) q++;
+    size_t first = q;
+    bool hit = false;
+    while (q < pat.size() && (pat[q] != ']' || q == first)) {
+      unsigned char lo = static_cast<unsigned char>(pat[q]);
+      if (q + 2 < pat.size() && pat[q + 1] == '-' && pat[q + 2] != ']') {
+        unsigned char hi = static_cast<unsigned char>(pat[q + 2]);
+        if (c >= lo && c <= hi) hit = true;
+        q += 3;
+      } else {
+        if (lo == c) hit = true;
+        q++;
+      }
+    }
+    if (q < pat.size()) { // terminated class
+      next = q + 1;
+      return hit != negate;
+    }
+  }
+  next = p + 1;
+  return static_cast<unsigned char>(pat[p]) == c;
+}
+} // namespace
+
+// Wildcard matching with one backtrack point (the last '*'): O(|text| *
+// |pattern|) worst case, never exponential. The step budget turns the
+// polynomial worst case (1 MiB text x 32 KiB pattern took 40 s) into a clean
+// error instead of a stall.
 bool match(const std::string &text, const std::string &pattern) {
+  const uint64_t budget = uint64_t(1) << 27;
+  uint64_t steps = 0;
   size_t t = 0, p = 0, star_p = std::string::npos, star_t = 0;
   while (t < text.size()) {
-    if (p < pattern.size() &&
-        (pattern[p] == '?' || pattern[p] == text[t])) {
-      t++; p++;
-    } else if (p < pattern.size() && pattern[p] == '[') {
-      size_t q = p + 1;
-      bool negate = q < pattern.size() && pattern[q] == '!';
-      if (negate) q++;
-      bool hit = false;
-      char first = 0;
-      while (q < pattern.size() && (pattern[q] != ']' || q == p + 1 + (negate ? 1 : 0))) {
-        if (q + 2 < pattern.size() && pattern[q + 1] == '-' && pattern[q + 2] != ']') {
-          if (text[t] >= pattern[q] && text[t] <= pattern[q + 2]) hit = true;
-          q += 3;
-        } else {
-          if (pattern[q] == text[t]) hit = true;
-          first = pattern[q];
-          q++;
-        }
-      }
-      (void) first;
-      if (q >= pattern.size()) return false; // unterminated class
-      if (hit == negate) { goto star_backtrack; }
-      t++; p = q + 1;
-    } else if (p < pattern.size() && pattern[p] == '*') {
-      star_p = p++; star_t = t;
-    } else {
-    star_backtrack:
-      if (star_p == std::string::npos) return false;
+    if (++steps > budget)
+      throw std::string("str_match: pattern too costly for this text (more than 2^27 steps)");
+    size_t next = 0;
+    if (p < pattern.size() && pattern[p] == '*') {
+      star_p = p++;
+      star_t = t;
+    } else if (p < pattern.size() &&
+               element_matches(pattern, p, static_cast<unsigned char>(text[t]), next)) {
+      p = next;
+      t++;
+    } else if (star_p != std::string::npos) {
       p = star_p + 1;
       t = ++star_t;
+    } else {
+      return false;
     }
   }
   while (p < pattern.size() && pattern[p] == '*') p++;

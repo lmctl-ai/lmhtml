@@ -509,6 +509,24 @@ expect_refusal save-latin1 'html.save(html.load("'"$WORK"'/latin1.html"), "build
 [ ! -e build/latin1-out.html ] || fail "non-UTF-8 page was saved with mixed encodings"
 ok "Html.save refuses non-UTF-8 sources instead of mixing encodings (exit 3)"
 
+# str_match: escapes, literal unterminated '[', byte semantics, bounded cost.
+compile_chunk glob-table 'let cases = 0;
+if (str_match("a[c", "a[c")) { cases = cases + 1; }
+if (str_match("a[c", "*[c")) { cases = cases + 1; }
+if (str_match("a*c", "a\\*c")) { cases = cases + 1; }
+if (!str_match("abc", "a\\*c")) { cases = cases + 1; }
+if (str_match("a]c", "a[]]c")) { cases = cases + 1; }
+if (!str_match("abc", "[z-a]bc")) { cases = cases + 1; }
+if (str_match("blog/x/y.html", "blog/*")) { cases = cases + 1; }
+if (str_match("", "*") && !str_match("", "?")) { cases = cases + 1; }
+report.add("glob", "", cases, ""); report.write_text("'"$WORK"'/glob.txt");'
+"$HOST" --dsl "$WORK/glob-table.dslb" >/dev/null || fail "glob table run"
+[ "$(cat "$WORK/glob.txt")" = "glob :8: " ] || fail "glob semantics: $(cat "$WORK/glob.txt")"
+compile_chunk glob-costly 'let t = "a"; for (i in range(0, 20)) { t = t + t; } let p = "a"; for (i in range(0, 15)) { p = p + p; } str_match(t, "*" + p + "b");'
+set +e; out="$(timeout 10 "$HOST" --dsl "$WORK/glob-costly.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'too costly'* ]] || fail "costly glob not bounded (exit $code): $out"
+ok "str_match: escapes, literal '[', empty cases; 1 MiB x 32 KiB worst case refused fast"
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"

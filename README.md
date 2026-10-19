@@ -64,8 +64,9 @@ All work is an lmscript `_dsl_` chunk compiled against `schema/lmhtml.dsl.json`
    `str_difference` + `str_union` + `str_list` for custom set flow;
    `suggest(name, candidates)` gives edit-distance near misses; ignore
    JS-hook patterns with `str_match(name, "language-*")`. Glob syntax:
-   `*` any run (including `/`), `?` one char, `[...]` class with ranges,
-   `[!...]` negated class.
+   `*` any run (including `/`), `?` one byte, `[...]` class with ranges,
+   `[!...]` negated class, `\x` literal x (an unterminated `[` is literal);
+   bytes, not code points; worst case is refused beyond 2^27 steps.
 3. **Structural diff** — `examples/diff-pages.lms`: `html.diff(a, b)` ignores
    whitespace/comment/attribute-order/`data-*` noise and emits
    `diff-added/removed/changed` findings with CSS-ish paths; `Node.hash()` is
