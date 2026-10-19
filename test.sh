@@ -31,7 +31,7 @@ if [[ "$BUILD_DIR" == *sanitize* ]]; then
                -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
                -DLMHTML_FULL_STATIC=OFF)
 fi
-cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release "${CMAKE_EXTRA[@]}" >"$WORK/cmake.log"
+cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release ${CMAKE_EXTRA:+"${CMAKE_EXTRA[@]}"} >"$WORK/cmake.log"
 nice -n 19 cmake --build "$BUILD_DIR" -j2 >"$WORK/build.log"
 ok "host build ($BUILD_DIR)"
 
