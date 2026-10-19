@@ -45,10 +45,11 @@
    determinism. No ignore rules (e.g. skip `node_modules`-style dirs) yet.
 9. lmcad's `tests/*.py` refusal suites are a good model; lmhtml currently
    keeps refusals inline in test.sh — split out when the list grows.
-10. `css_classes`/`css_ids` harvest **top-level style rules of inline
-    `<style>` only**: rules nested in `@media` blocks are skipped, external
-    stylesheets are not read. Both need a decision (walk at-rule children;
-    load linked CSS relative to the page).
+10. ~~`css_classes`/`css_ids` harvest top-level style rules of inline
+    `<style>` only~~ **Done during dogfooding**: linked local stylesheets are
+    read (link-resolution policy; external/missing skipped) and `@media`
+    blocks are recursed into. Remaining: per-page re-parse of shared sheets
+    (no cache), and CDN-hosted stylesheets stay invisible by design.
 11. lexbor cleanup gotchas found by ASan: `lxb_css_selector_list_destroy_memory`
     after each selector-list use (M1), and `lxb_css_parser_selectors_destroy`
     before `lxb_css_parser_destroy` when `lxb_css_parser_selectors_init` was

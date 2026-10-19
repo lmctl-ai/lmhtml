@@ -30,3 +30,6 @@ scripted by lmscript `_dsl_` bytecode). Read in numeric order.
   measured notes; PASS 35/34 checks; serializer and hash_all bugs caught.
 - `10-m5-rewrite.md` — M5 mutations + safe save (atomic, cwd root, dry-run),
   serializer lossy list; PASS 43/42 checks.
+- `11-dogfood.md` — real-site dogfood (mdbook/Jekyll/Sphinx mirrors):
+  timings, RSS, finding classification, fixes (external CSS/@media, srcset,
+  arena limit, str_union/str_list), enhancement list.
