@@ -50,8 +50,12 @@ static lxb_dom_element_t *as_element(lxb_dom_node_t *node) {
 
 std::string tag_name(lxb_dom_node_t *node) {
   size_t len = 0;
+  // HTML element tag names come back uppercase from the DOM; normalize.
   const lxb_char_t *name = lxb_dom_node_name(node, &len);
-  return std::string(reinterpret_cast<const char *>(name), len);
+  std::string out(reinterpret_cast<const char *>(name), len);
+  for (auto &c : out)
+    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+  return out;
 }
 
 std::string attr(lxb_dom_node_t *node, const std::string &name) {
