@@ -488,7 +488,12 @@ compile_chunk save-safety 'let d = html.parse("<p>new</p>"); html.save(d, "sub/p
 ( cd "$OUTROOT" && "$HERE/$HOST" --dsl "$WORK/save-safety.dslb" >/dev/null ) || fail "save-safety run"
 [ "$(cat "$WORK/outside/victim.txt")" = victim ] || fail "save wrote through a planted temp-name symlink"
 [ -f "$OUTROOT/sub/page.html" ] && [ ! -L "$OUTROOT/sub/page.html" ] || fail "saved page is not a regular file"
-[ "$(stat -c %a "$OUTROOT/mode.html")" = 640 ] || fail "save did not keep the replaced file's mode: $(stat -c %a "$OUTROOT/mode.html")"
+case "$UNAME_S" in
+  MINGW*|MSYS*|CYGWIN*) : ;; # NTFS has no POSIX modes; the Windows save path documents the reduced guarantee
+  *)
+    [ "$(stat -c %a "$OUTROOT/mode.html" 2>/dev/null || stat -f%Lp "$OUTROOT/mode.html")" = 640 ] || fail "save did not keep the replaced file's mode"
+    ;;
+esac
 compile_chunk save-dir 'html.save(html.parse("<p>x</p>"), "sub");'
 compile_chunk save-slash 'html.save(html.parse("<p>x</p>"), "newdir/");'
 for t in save-dir save-slash; do
