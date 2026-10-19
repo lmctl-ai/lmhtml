@@ -607,6 +607,32 @@ expect_refusal load-dir-escape 'html.load_dir("'"$G"'", "../*", "");' 'pattern l
 expect_refusal load-dir-abs 'html.load_dir("'"$G"'", "/etc/*", "");' 'pattern is outside'
 ok "load_dir globs: ./ and absolute-below-dir accepted, **/ matches zero dirs, escapes refused"
 
+# npm layout (release job): JSON valid, versions in sync, os/cpu mapping,
+# exec bits, never publishable, non-semver refused.
+NPMART="$WORK/npm-art"; mkdir -p "$NPMART"
+for p in linux-x64 linux-arm64 macos-x64 macos-arm64; do printf 'bin' > "$NPMART/lmhtml-$p"; done
+printf 'exe' > "$NPMART/lmhtml-windows-x64.exe"
+scripts/npm-layout.sh "$NPMART" "$WORK/npm-out" 1.2.3 >/dev/null || fail "npm layout"
+python3 - "$WORK/npm-out" <<'PY'
+import json,os,sys
+out=sys.argv[1]
+main=json.load(open(f'{out}/lmhtml/package.json'))
+assert main['version']=='1.2.3' and main['private'] is True, main
+expect={'linux-x64':('linux','x64','lmhtml'),'linux-arm64':('linux','arm64','lmhtml'),
+        'macos-x64':('darwin','x64','lmhtml'),'macos-arm64':('darwin','arm64','lmhtml'),
+        'windows-x64':('win32','x64','lmhtml.exe')}
+assert main['optionalDependencies']=={f'@lmhtml/{p}':'1.2.3' for p in expect}, main
+for p,(os_,cpu,binname) in expect.items():
+    j=json.load(open(f'{out}/@lmhtml/{p}/package.json'))
+    assert (j['name'],j['version'],j['os'],j['cpu'],j['files'],j['private'])==(f'@lmhtml/{p}','1.2.3',[os_],[cpu],[binname],True), j
+    assert os.access(f'{out}/@lmhtml/{p}/{binname}', os.X_OK), p
+assert os.access(f'{out}/lmhtml/bin/lmhtml.js', os.X_OK)
+PY
+[ $? = 0 ] || fail "npm layout content"
+set +e; scripts/npm-layout.sh "$NPMART" "$WORK/npm-bad" v1 >/dev/null 2>&1; code=$?; set -e
+[ "$code" = 2 ] || fail "npm layout accepted non-semver version (exit $code)"
+ok "npm layout: versions in sync, os/cpu, exec bits, private, non-semver refused"
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"

@@ -7,6 +7,13 @@ set -euo pipefail
 ART="${1:?artifacts dir}"
 OUT="${2:?output dir}"
 VER="${3:-0.0.0}"
+# npm needs semver; a tag like "v1" or "1.0" would lay out unpublishable,
+# mutually inconsistent packages.
+[[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]] ||
+  { echo "version '$VER' is not semver (x.y.z)" >&2; exit 2; }
+# The repository has no LICENSE file yet: do not claim one. "private": true
+# makes an accidental `npm publish` of these directories fail.
+LICENSE_FIELD="UNLICENSED"
 
 PLATFORMS="linux-x64 linux-arm64 macos-x64 macos-arm64 windows-x64"
 npm_os() { case "$1" in macos*) echo darwin;; windows*) echo win32;; *) echo "${1%%-*}";; esac; }
@@ -21,7 +28,8 @@ cat > "$OUT/lmhtml/package.json" <<EOF
   "name": "lmhtml",
   "version": "$VER",
   "description": "Static native CLI for bulk HTML work (lexbor + lmscript _dsl_ bytecode)",
-  "license": "Apache-2.0",
+  "license": "$LICENSE_FIELD",
+  "private": true,
   "bin": { "lmhtml": "bin/lmhtml.js" },
   "optionalDependencies": {
 $(i=0; for p in $PLATFORMS; do
@@ -75,11 +83,12 @@ for plat in $PLATFORMS; do
   "name": "@lmhtml/$plat",
   "version": "$VER",
   "description": "lmhtml binary for $plat",
-  "license": "Apache-2.0",
+  "license": "$LICENSE_FIELD",
+  "private": true,
   "os": [ "$(npm_os "$plat")" ],
   "cpu": [ "$(npm_cpu "$plat")" ],
   "files": [ "$bin" ]
 }
 EOF
 done
-echo "npm package set laid out in $OUT (main + $(echo $PLATFORMS | wc -w) platform packages)"
+echo "npm package set laid out in $OUT (main + $(echo "$PLATFORMS" | wc -w) platform packages)"
