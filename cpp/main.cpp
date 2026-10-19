@@ -40,7 +40,10 @@ struct Report {
   std::vector<Finding> findings;
 };
 
+struct ImageSize { int64_t width, height; };
+
 struct Host {
+  std::vector<std::unique_ptr<ImageSize>> image_sizes;
   std::vector<std::unique_ptr<lmhtml::Document>> docs;
   std::vector<std::unique_ptr<std::vector<lxb_dom_node_t *>>> node_lists;
   std::vector<std::unique_ptr<std::vector<std::string>>> str_lists;
@@ -846,6 +849,25 @@ void register_host(dslvm::Registry &r, Host &h) {
   checked_method(r, "DocList", "ids", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 2); });
   checked_method(r, "DocList", "css_ids", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 3); });
 
+  checked_method(r, "ImageSize", "width", {}, "int", [](void *p, Args &) { return Value::integer(self<ImageSize>(p)->width); });
+  checked_method(r, "ImageSize", "height", {}, "int", [](void *p, Args &) { return Value::integer(self<ImageSize>(p)->height); });
+  checked_method(r, "Html", "png_size", {"string"}, "ImageSize", [&h](void *, Args &a) {
+    const auto &path = a[0].s;
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec)) throw dslvm::Error("png_size: cannot read " + path);
+    std::ifstream in(path, std::ios::binary);
+    unsigned char bytes[33]{};
+    in.read(reinterpret_cast<char *>(bytes), sizeof(bytes));
+    const unsigned char signature[] = {137, 80, 78, 71, 13, 10, 26, 10};
+    auto u32 = [&](size_t i) { return (uint32_t(bytes[i]) << 24) | (uint32_t(bytes[i+1]) << 16) | (uint32_t(bytes[i+2]) << 8) | uint32_t(bytes[i+3]); };
+    if (in.gcount() != sizeof(bytes) || !std::equal(std::begin(signature), std::end(signature), bytes) ||
+        u32(8) != 13 || std::string(reinterpret_cast<char *>(bytes + 12), 4) != "IHDR")
+      throw dslvm::Error("png_size: invalid PNG header: " + path);
+    const auto width = u32(16), height = u32(20);
+    if (!width || !height || width > 0x7fffffffU || height > 0x7fffffffU)
+      throw dslvm::Error("png_size: invalid PNG dimensions: " + path);
+    return h.hold(h.image_sizes, "ImageSize", ImageSize{width, height});
+  });
   checked_method(r, "Html", "load", {"string"}, "Doc", [&h](void *, Args &a) {
     auto doc = lmhtml::parse_html(read_file(a[0].s), a[0].s);
     if (h.docs.size() >= 4096) throw dslvm::Error("Doc object limit exceeded (4096)");

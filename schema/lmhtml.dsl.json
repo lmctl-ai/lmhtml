@@ -61,8 +61,13 @@
         "css_ids": [{ "params": [], "returns": "StrList" }]
       }
     },
+    "ImageSize": { "methods": {
+      "width": [{ "params": [], "returns": "int" }],
+      "height": [{ "params": [], "returns": "int" }]
+    } },
     "Html": {
       "methods": {
+        "png_size": [{ "params": ["string"], "returns": "ImageSize" }],
         "load": [{ "params": ["string"], "returns": "Doc" }],
         "load_dir": [{ "params": ["string"], "returns": "DocList" },
                      { "params": ["string", "string", "string"], "returns": "DocList" }],

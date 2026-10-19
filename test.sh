@@ -729,4 +729,32 @@ ok "Report.fail_if_any fails with APP_FAIL"
 ok "lexbor source ranges, fragments, raw atomic save and catalog functions"
 expect_refusal source-ambiguous 'html.parse("<p>one</p><p>two</p>").source_inner("p");' 'ambiguous'
 expect_refusal source-unclosed 'html.parse("<main>unclosed").source_inner("main");' 'no explicit end tag'
+python3 - "$WORK" <<'PYPNG'
+import pathlib,struct,sys,zlib
+root=pathlib.Path(sys.argv[1])
+def png(w,h):
+    data=struct.pack('>IIBBBBB',w,h,8,2,0,0,0)
+    return b'\x89PNG\r\n\x1a\n'+struct.pack('>I',13)+b'IHDR'+data+struct.pack('>I',zlib.crc32(b'IHDR'+data))
+(root/'size.png').write_bytes(png(321,123))
+(root/'zero.png').write_bytes(png(0,1))
+(root/'huge.png').write_bytes(png(0x80000000,1))
+(root/'truncated.png').write_bytes(png(1,1)[:23])
+(root/'not.png').write_bytes(b'x'*33)
+PYPNG
+cat > "$WORK/png-size.lms" <<'EOF'
+p = _dsl_ schema="embedded-schema.json";
+let size = html.png_size(${ARGV[1]});
+if (size.width() != 321 || size.height() != 123) { report.add("test", "png", 0, "wrong dimensions"); }
+report.fail_if_any();
+end _dsl_
+savedsl(p, ARGV[0]);
+EOF
+"$LMSCRIPT" "$WORK/png-size.lms" "$WORK/png-size.dslb" "$WORK/size.png" || fail "PNG size compile"
+"$HOST" --dsl "$WORK/png-size.dslb" "$WORK/png-size.dslb" >/dev/null || fail "PNG dimensions across chunks"
+ok "PNG intrinsic dimensions and multiple chunks"
+expect_refusal png-zero "html.png_size(\"$WORK/zero.png\");" 'invalid PNG dimensions'
+expect_refusal png-huge "html.png_size(\"$WORK/huge.png\");" 'invalid PNG dimensions'
+expect_refusal png-short "html.png_size(\"$WORK/truncated.png\");" 'invalid PNG header'
+expect_refusal png-invalid "html.png_size(\"$WORK/not.png\");" 'invalid PNG header'
+expect_refusal png-missing "html.png_size(\"$WORK/missing.png\");" 'cannot read'
 echo "PASS: $pass checks"

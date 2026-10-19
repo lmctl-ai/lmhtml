@@ -158,3 +158,12 @@ parsers do not require floating-point `from_chars` on Apple libc++.
 `str_text_prefix(string, count)` returns at most count UTF-8 codepoints without
 splitting a character (negative counts yield empty; invalid UTF-8 is an error).
 The schema and `--schema` summary include these overloads and functions.
+
+`html.png_size(path)` reads only the 33-byte PNG signature/IHDR header from a
+regular local file and returns an immutable `ImageSize` with `width()` and
+`height()` integer methods. Paths are filesystem paths relative to the working
+directory (or absolute), not site URLs. Missing files, non-PNG/truncated headers,
+zero dimensions and dimensions above 2^31-1 raise a located DSL error. This is
+metadata inspection, not full PNG/CRC or pixel-data validation. The returned
+object remains valid across chunks for the host lifetime. `--schema` lists the
+new methods automatically from the registry.
