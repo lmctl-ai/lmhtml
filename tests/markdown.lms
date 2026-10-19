@@ -1,0 +1,19 @@
+p = _dsl_ schema="../schema/lmhtml.dsl.json";
+fn equal(markup: string, expected: string) -> void {
+  let doc = html.parse("<main>" + markup + "</main>");
+  let first = doc.markdown("main");
+  if (first != expected || first != doc.markdown("main")) { report.add("markdown", "fixture", 0, "unexpected conversion: " + first); }
+}
+equal("<h1>A &amp; B</h1><p>Hello <strong>bold</strong> <em>soft</em> <code>a`b</code>.</p>", "# A & B\n\n\n\nHello **bold** *soft* ``a`b``.\n");
+equal("<pre><kbd>echo x</kbd>\n<samp>x</samp></pre>", "```\necho x\nx\n```\n");
+equal("<pre><code>```\n  exact &lt;x&gt;\n</code></pre>", "````\n```\n  exact <x>\n````\n");
+equal("<ul><li>one<ul><li>two</li></ul></li><li>three</li></ul>", "- one\n  \n  - two\n- three\n");
+equal("<ol start='3'><li>three</li><li>four</li></ol>", "3. three\n4. four\n");
+equal("<table><tr><th>Key</th><th>Value</th></tr><tr><td>a|b</td><td><code>x|y</code></td></tr></table>", "| Key | Value |\n| --- | --- |\n| a\\|b | `x\\|y` |\n");
+equal("<p><a href='/skills/x.html#id' title='say &quot;hi&quot;'>Read</a> <img src='a b.png' alt='A * B'></p>", "[Read](</skills/x.html#id> \"say \\\"hi\\\"\") ![A \\* B](<a%20b.png>)\n");
+equal("<blockquote><p>Quote</p><p>Again</p></blockquote>", "> Quote\n> \n> \n> \n> Again\n");
+equal("<dl><dt>Term</dt><dd>Definition</dd></dl><hr><h4>End</h4>", "**Term**\n\nDefinition\n\n\n\n---\n\n\n\n#### End\n");
+report.write_text(${ARGV[1]});
+report.fail_if_any();
+end _dsl_
+savedsl(p, ARGV[0]);

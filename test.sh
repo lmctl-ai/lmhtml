@@ -757,4 +757,11 @@ expect_refusal png-huge "html.png_size(\"$WORK/huge.png\");" 'invalid PNG dimens
 expect_refusal png-short "html.png_size(\"$WORK/truncated.png\");" 'invalid PNG header'
 expect_refusal png-invalid "html.png_size(\"$WORK/not.png\");" 'invalid PNG header'
 expect_refusal png-missing "html.png_size(\"$WORK/missing.png\");" 'cannot read'
+"$LMSCRIPT" tests/markdown.lms "$WORK/markdown.dslb" "$WORK/markdown.txt" || fail "markdown compile"
+"$HOST" --dsl "$WORK/markdown.dslb" >/dev/null || { cat "$WORK/markdown.txt"; fail "markdown conversion"; }
+ok "Markdown controlled subset, exact code, tables, nesting, links and determinism"
+expect_refusal markdown-unknown 'html.parse("<main><div>x</div></main>").markdown("main");' 'unsupported element'
+expect_refusal markdown-selector 'html.parse("<p>a</p><p>b</p>").markdown("p");' 'exactly one'
+expect_refusal markdown-span 'html.parse("<table><tr><td colspan=2>x</td></tr></table>").markdown("table");' 'spans unsupported'
+expect_refusal markdown-ragged 'html.parse("<table><tr><td>x</td><td>y</td></tr><tr><td>z</td></tr></table>").markdown("table");' 'rectangular'
 echo "PASS: $pass checks"

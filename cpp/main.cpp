@@ -3,6 +3,7 @@
 #include "dslvm.hpp"
 #include "analyze.hpp"
 #include "html.hpp"
+#include "markdown.hpp"
 #include "schema_embedded.hpp"
 #include "strlib.hpp"
 #include <algorithm>
@@ -676,6 +677,9 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
   checked_method(r, "Doc", "source_outer", {"string"}, "string", [](void *p, Args &a) {
     return wrap_lex("Doc.source_outer", [&] { return Value::string(lmhtml::source_element(*doc_of(p, "Doc.source_outer"), a[0].s, false)); });
+  });
+  checked_method(r, "Doc", "markdown", {"string"}, "string", [](void *p, Args &a) {
+    return wrap_lex("Doc.markdown", [&] { return Value::string(lmhtml::document_markdown(*doc_of(p, "Doc.markdown"), a[0].s)); });
   });
   checked_method(r, "Doc", "byte_size", {}, "int", [](void *p, Args &) {
     return Value::integer(doc_of(p, "Doc.byte_size")->source_bytes);

@@ -167,3 +167,16 @@ zero dimensions and dimensions above 2^31-1 raise a located DSL error. This is
 metadata inspection, not full PNG/CRC or pixel-data validation. The returned
 object remains valid across chunks for the host lifetime. `--schema` lists the
 new methods automatically from the registry.
+
+### Markdown export
+
+`Doc.markdown(selector) -> string` deterministically exports exactly one selected
+content element (for example `doc.markdown("main")`). It supports h1–h4, paragraphs,
+nested lists (including ordered starts), pre/code/kbd/samp, rectangular tables,
+links/images, strong/em, blockquotes, hr and definition lists (terms become bold
+paragraphs), plus main/body/section/article/figure containers. Code text is preserved;
+fences grow to accommodate embedded backticks. Links retain their targets and titles;
+call `Node.set_attr` before export if a publishing pipeline needs link mapping.
+Document chrome is excluded by selecting only content. Output ends in a newline.
+Unsupported tags, table spans/block cells, ambiguous selectors and non-UTF-8 input
+fail clearly. This is a controlled-subset exporter, not arbitrary HTML round-tripping.
