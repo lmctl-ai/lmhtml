@@ -8,9 +8,14 @@ chooses inputs, thresholds, and where results go.
 A node's *normalized form* is computed bottom-up:
 
 - **Whitespace**: text nodes stripped of leading/trailing whitespace runs;
-  internal runs collapse to one space; all-whitespace text nodes dropped.
+  internal runs collapse to one space; all-whitespace text nodes dropped —
+  except inside `<pre>`/`<textarea>`/`<listing>`/`<plaintext>`, where text is
+  kept verbatim. Each text run is keyed by its position among the element
+  children (`a<b>x</b>b` ≠ `ab<b>x</b>`). Whitespace *between* inline
+  elements is dropped (`<b>a</b> <i>b</i>` = `<b>a</b><i>b</i>`): accepted.
 - **Attributes**: sorted by name; values verbatim; `class` attribute value
-  split and sorted (class order is not semantic).
+  split and sorted (class order is not semantic); boolean attributes
+  (`disabled`, `checked`, ...) compare by presence only.
 - **Ignored entirely**: comments, `<!DOCTYPE>`, `data-*` attributes (v0
   choice — they are page-instance noise more often than structure).
 - **Kept**: tag name, attribute names/values, text content, child order.
@@ -23,8 +28,9 @@ Merkle-style: `h(node) = H(tag, sorted attrs, normalized text, h(child1),
 ..., h(childN))` with H = FNV-1a 64 over a length-prefixed serialization
 (domain-separated field tags). O(n) per tree, one pass, hashes cached per
 node. Collision risk at site scale (<10^6 subtrees) is ~2^-32 birthday —
-acceptable for a findings tool; v0 trusts the 64-bit hash, equality is
-verified by normalized serialization only when a human acts on a template.
+acceptable for a findings tool. FNV-1a is not collision resistant, so
+`html.diff` treats a hash match only as a candidate and confirms it with an
+exact normalized comparison before skipping a subtree.
 
 ## Structural diff (`html.diff(a, b)`)
 
@@ -38,7 +44,13 @@ Algorithm:
 3. Otherwise compare tag/attrs/text → `changed` finding; then match children
    by **LCS over child hashes** (dynamic programming on the hash sequence,
    O(k1*k2) in sibling counts, small in practice) → matched pairs recurse,
-   unmatched left = `removed`, unmatched right = `added`.
+   unmatched left = `removed`, unmatched right = `added`. Common prefix and
+   suffix are trimmed first; if the rest still needs more than 4 Mi LCS cells
+   (e.g. 2k x 2k changed siblings) a greedy in-order hash match is used
+   instead (bounded memory; big reorders may show extra add/remove pairs).
+   Unmatched leftovers with equal tags pair up and recurse; identical
+   leftovers are moves and show as `removed` + `added`. Paths for `added`
+   use the right-hand document's positions.
 4. Each finding: `{kind: added|removed|changed, file, line: 0, message}` with
    a CSS-ish path (`body > div:nth(2) > p`) for location.
 

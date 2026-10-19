@@ -252,6 +252,39 @@ EOF
 diff -u "$WORK/link-policy.expected" "$WORK/link-policy.txt" || fail "link resolution policy"
 ok "link policy: dirs, query, percent-encoding, base href, root, schemes, escapes"
 
+E=tests/fixtures/diff-edge
+body=''
+for t in text pre bool move path; do body="$body
+report.add(\"summary\", \"$t\", html.diff(html.load(\"$E/$t-a.html\"), html.load(\"$E/$t-b.html\")), \"\");"; done
+compile_chunk diff-edge "$body
+report.write_text(\"$WORK/diff-edge.txt\");"
+"$HOST" --dsl "$WORK/diff-edge.dslb" >/dev/null || fail "diff edge run"
+cat > "$WORK/diff-edge.expected" <<EOF
+diff-changed $E/text-a.html:0: html > body:nth-child(2) > p:nth-child(1): text differs
+summary text:1: 
+diff-changed $E/pre-a.html:0: html > body:nth-child(2) > pre:nth-child(1): text differs
+summary pre:1: 
+summary bool:0: 
+diff-removed $E/move-a.html:0: html > body:nth-child(2) > section:nth-child(3)
+diff-added $E/move-b.html:0: html > body:nth-child(2) > section:nth-child(1)
+summary move:2: 
+diff-added $E/path-b.html:0: html > body:nth-child(2) > section:nth-child(3) > p:nth-child(2)
+diff-added $E/path-b.html:0: html > body:nth-child(2) > nav:nth-child(1)
+summary path:2: 
+EOF
+diff -u "$WORK/diff-edge.expected" "$WORK/diff-edge.txt" || fail "diff edge cases"
+ok "diff: text position, <pre> whitespace, boolean attrs, moves, right-side paths"
+python3 - "$WORK" <<'PY'
+import sys
+w=sys.argv[1]
+open(w+'/wide-a.html','w').write('<ul>'+''.join('<li>a%d</li>'%i for i in range(20000))+'</ul>')
+open(w+'/wide-b.html','w').write('<ul>'+''.join('<li>b%d</li>'%i for i in range(20000))+'</ul>')
+PY
+compile_chunk diff-wide 'report.add("n", "", html.diff(html.load("'"$WORK"'/wide-a.html"), html.load("'"$WORK"'/wide-b.html")), ""); report.write_text("'"$WORK"'/wide.txt");'
+( ulimit -v 1000000; timeout 60 "$HOST" --dsl "$WORK/diff-wide.dslb" >/dev/null ) || fail "20k x 20k sibling diff exceeded 1 GB / 60 s"
+[ "$(tail -1 "$WORK/wide.txt")" = "n :20000: " ] || fail "wide diff count: $(tail -1 "$WORK/wide.txt")"
+ok "diff of 20k x 20k distinct siblings stays bounded (LCS cell cap)"
+
 compile_chunk not-implemented 'let d = html.parse("<p>x</p>"); d.select("p").at(0).remove();'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"

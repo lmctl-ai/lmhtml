@@ -4,6 +4,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <unordered_map>
 
 namespace lmhtml {
 namespace {
@@ -36,7 +37,18 @@ std::string normalize_text(const std::string &s) {
   return out;
 }
 
-// Sorted attribute map with class tokens sorted and data-* dropped.
+// HTML boolean attributes: presence is the value.
+const std::set<std::string> &boolean_attrs() {
+  static const std::set<std::string> names = {
+      "allowfullscreen", "async", "autofocus", "autoplay", "checked", "controls", "default",
+      "defer", "disabled", "formnovalidate", "hidden", "inert", "ismap", "itemscope", "loop",
+      "multiple", "muted", "nomodule", "novalidate", "open", "playsinline", "readonly",
+      "required", "reversed", "selected"};
+  return names;
+}
+
+// Sorted attribute map with class tokens sorted, data-* dropped and boolean
+// attribute values ignored.
 std::map<std::string, std::string> norm_attrs(lxb_dom_node_t *node) {
   std::map<std::string, std::string> out;
   lxb_dom_element_t *el = lxb_dom_interface_element(node);
@@ -49,6 +61,7 @@ std::map<std::string, std::string> norm_attrs(lxb_dom_node_t *node) {
     std::string n(reinterpret_cast<const char *>(name), nlen);
     std::string v = value ? std::string(reinterpret_cast<const char *>(value), vlen) : "";
     if (strlib::starts_with(n, "data-")) continue;
+    if (boolean_attrs().count(n)) v.clear(); // disabled == disabled="disabled"
     if (n == "class") {
       std::vector<std::string> tokens;
       std::string cur;
@@ -74,26 +87,72 @@ std::vector<lxb_dom_node_t *> element_children(lxb_dom_node_t *node) {
   return out;
 }
 
-std::string direct_text(lxb_dom_node_t *node) {
-  std::string raw;
-  for (lxb_dom_node_t *c = node->first_child; c; c = c->next)
-    if (c->type == LXB_DOM_NODE_TYPE_TEXT || c->type == LXB_DOM_NODE_TYPE_CDATA_SECTION) {
-      size_t len = 0;
-      const lxb_char_t *d = lxb_dom_node_text_content(c, &len);
-      if (d) raw.append(reinterpret_cast<const char *>(d), len);
-    }
-  return normalize_text(raw);
+// Whitespace is content inside these (and their descendants).
+bool preserves_space(lxb_dom_node_t *node) {
+  std::string tag = tag_name(node);
+  return tag == "pre" || tag == "textarea" || tag == "listing" || tag == "plaintext";
+}
+bool inside_preformatted(lxb_dom_node_t *node) {
+  for (lxb_dom_node_t *n = node; n; n = n->parent)
+    if (n->type == LXB_DOM_NODE_TYPE_ELEMENT && preserves_space(n)) return true;
+  return false;
 }
 
-uint64_t hash_node(lxb_dom_node_t *node) {
+std::string node_text(lxb_dom_node_t *c) {
+  size_t len = 0;
+  const lxb_char_t *d = lxb_dom_node_text_content(c, &len);
+  return d ? std::string(reinterpret_cast<const char *>(d), len) : "";
+}
+
+// The node's own text, positioned: each non-empty text run is prefixed with
+// the number of element children before it, so moving text across a child
+// element ("a<b>x</b>b" vs "ab<b>x</b>") is a change.
+std::string text_signature(lxb_dom_node_t *node, bool preserve) {
+  std::string out;
+  size_t elements = 0;
+  for (lxb_dom_node_t *c = node->first_child; c; c = c->next) {
+    if (c->type == LXB_DOM_NODE_TYPE_ELEMENT) elements++;
+    else if (c->type == LXB_DOM_NODE_TYPE_TEXT || c->type == LXB_DOM_NODE_TYPE_CDATA_SECTION) {
+      std::string seg = preserve ? node_text(c) : normalize_text(node_text(c));
+      if (!seg.empty()) out += std::to_string(elements) + ":" + seg + '\x1f';
+    }
+  }
+  return out;
+}
+
+using HashCache = std::unordered_map<lxb_dom_node_t *, uint64_t>;
+
+uint64_t hash_node(lxb_dom_node_t *node, bool preserve, HashCache *cache) {
+  if (cache) {
+    auto it = cache->find(node);
+    if (it != cache->end()) return it->second;
+  }
   Hash h;
   h.str(tag_name(node));
   for (const auto &[name, value] : norm_attrs(node)) { h.str(name); h.str(value); }
-  h.str(direct_text(node));
+  h.str(text_signature(node, preserve));
   auto kids = element_children(node);
   h.num(kids.size());
-  for (auto *c : kids) h.num(hash_node(c));
+  for (auto *c : kids) h.num(hash_node(c, preserve || preserves_space(c), cache));
+  if (cache) (*cache)[node] = h.h;
   return h.h;
+}
+
+uint64_t hash_node(lxb_dom_node_t *node) {
+  return hash_node(node, inside_preformatted(node), nullptr);
+}
+
+// Exact normalized equality: the hash is only a filter, a 64-bit FNV match is
+// confirmed before two subtrees are treated as identical.
+bool same_tree(lxb_dom_node_t *a, lxb_dom_node_t *b, bool preserve) {
+  if (tag_name(a) != tag_name(b) || norm_attrs(a) != norm_attrs(b) ||
+      text_signature(a, preserve) != text_signature(b, preserve))
+    return false;
+  auto ca = element_children(a), cb = element_children(b);
+  if (ca.size() != cb.size()) return false;
+  for (size_t i = 0; i < ca.size(); i++)
+    if (!same_tree(ca[i], cb[i], preserve || preserves_space(ca[i]))) return false;
+  return true;
 }
 
 std::string segment(lxb_dom_node_t *node) {
@@ -110,9 +169,19 @@ std::string segment(lxb_dom_node_t *node) {
   return seg;
 }
 
-void diff_elements(lxb_dom_node_t *a, lxb_dom_node_t *b, const std::string &path,
-                   const std::string &file_a, const std::string &file_b,
-                   std::vector<DiffFinding> &out) {
+// Sibling lists whose LCS table (after trimming the common prefix/suffix)
+// would exceed this many cells use greedy in-order matching instead; a large
+// reorder may then show extra added/removed pairs, never unbounded memory.
+const size_t LCS_MAX_CELLS = size_t(4) << 20;
+
+struct DiffContext {
+  const std::string &file_a, &file_b;
+  std::vector<DiffFinding> &out;
+  HashCache cache_a, cache_b;
+};
+
+void diff_elements(lxb_dom_node_t *a, lxb_dom_node_t *b, const std::string &path_a,
+                   const std::string &path_b, bool preserve, DiffContext &cx) {
   auto attrs_a = norm_attrs(a), attrs_b = norm_attrs(b);
   if (attrs_a != attrs_b) {
     std::set<std::string> names;
@@ -120,52 +189,86 @@ void diff_elements(lxb_dom_node_t *a, lxb_dom_node_t *b, const std::string &path
     for (const auto &[n, v] : attrs_b) if (!attrs_a.count(n)) names.insert(n);
     std::string list;
     for (const auto &n : names) { if (!list.empty()) list += ","; list += n; }
-    out.push_back({"diff-changed", file_a, path + ": attributes differ: " + list, 0});
+    cx.out.push_back({"diff-changed", cx.file_a, path_a + ": attributes differ: " + list, 0});
   }
-  std::string text_a = direct_text(a), text_b = direct_text(b);
-  if (text_a != text_b)
-    out.push_back({"diff-changed", file_a, path + ": text differs", 0});
+  if (text_signature(a, preserve) != text_signature(b, preserve))
+    cx.out.push_back({"diff-changed", cx.file_a, path_a + ": text differs", 0});
 
   auto ca = element_children(a), cb = element_children(b);
+  auto keep = [&](lxb_dom_node_t *c) { return preserve || preserves_space(c); };
   std::vector<uint64_t> ha, hb;
-  for (auto *c : ca) ha.push_back(hash_node(c));
-  for (auto *c : cb) hb.push_back(hash_node(c));
-
-  // LCS over child hashes: matched pairs are identical subtrees.
+  for (auto *c : ca) ha.push_back(hash_node(c, keep(c), &cx.cache_a));
+  for (auto *c : cb) hb.push_back(hash_node(c, keep(c), &cx.cache_b));
   const size_t n = ha.size(), m = hb.size();
-  std::vector<std::vector<size_t>> dp(n + 1, std::vector<size_t>(m + 1, 0));
-  for (size_t i = n; i-- > 0;)
-    for (size_t j = m; j-- > 0;)
-      dp[i][j] = ha[i] == hb[j] ? dp[i + 1][j + 1] + 1 : std::max(dp[i + 1][j], dp[i][j + 1]);
   std::vector<bool> used_a(n, false), used_b(m, false);
-  for (size_t i = 0, j = 0; i < n && j < m;) {
-    if (ha[i] == hb[j]) { used_a[i] = used_b[j] = true; i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
-    else j++;
+  auto identical = [&](size_t i, size_t j) {
+    return ha[i] == hb[j] && same_tree(ca[i], cb[j], keep(ca[i]));
+  };
+  // Common prefix and suffix first (the usual case: a local edit).
+  size_t lo = 0;
+  while (lo < n && lo < m && identical(lo, lo)) { used_a[lo] = used_b[lo] = true; lo++; }
+  size_t hi_a = n, hi_b = m;
+  while (hi_a > lo && hi_b > lo && identical(hi_a - 1, hi_b - 1)) {
+    used_a[--hi_a] = true;
+    used_b[--hi_b] = true;
   }
-  // Pair remaining unmatched children in order when tags agree; recurse.
-  std::vector<size_t> rest_a, rest_b;
-  for (size_t i = 0; i < n; i++) if (!used_a[i]) rest_a.push_back(i);
-  for (size_t j = 0; j < m; j++) if (!used_b[j]) rest_b.push_back(j);
-  size_t paired = 0;
-  std::vector<bool> done_b(rest_b.size(), false);
-  for (size_t i = 0; i < rest_a.size(); i++) {
-    lxb_dom_node_t *na = ca[rest_a[i]];
-    size_t match = rest_b.size();
-    for (size_t j = 0; j < rest_b.size(); j++)
-      if (!done_b[j] && tag_name(cb[rest_b[j]]) == tag_name(na)) { match = j; break; }
-    if (match < rest_b.size()) {
-      done_b[match] = true;
-      paired++;
-      diff_elements(na, cb[rest_b[match]], path + " > " + segment(na), file_a, file_b, out);
-    } else {
-      out.push_back({"diff-removed", file_a, path + " > " + segment(na), 0});
+  const size_t rn = hi_a - lo, rm = hi_b - lo;
+  if (rn && rm && (rn + 1) * (rm + 1) <= LCS_MAX_CELLS) {
+    // LCS over child hashes in the middle; matches are verified.
+    std::vector<uint32_t> dp((rn + 1) * (rm + 1), 0);
+    auto at = [&](size_t i, size_t j) -> uint32_t & { return dp[i * (rm + 1) + j]; };
+    for (size_t i = rn; i-- > 0;)
+      for (size_t j = rm; j-- > 0;)
+        at(i, j) = ha[lo + i] == hb[lo + j] ? at(i + 1, j + 1) + 1
+                                            : std::max(at(i + 1, j), at(i, j + 1));
+    for (size_t i = 0, j = 0; i < rn && j < rm;) {
+      if (ha[lo + i] == hb[lo + j]) {
+        if (same_tree(ca[lo + i], cb[lo + j], keep(ca[lo + i])))
+          used_a[lo + i] = used_b[lo + j] = true;
+        i++; j++;
+      } else if (at(i + 1, j) >= at(i, j + 1)) i++;
+      else j++;
+    }
+  } else if (rn && rm) {
+    // Greedy in-order matching: each left child takes the next identical
+    // right child after the previous match.
+    std::unordered_map<uint64_t, std::vector<size_t>> positions;
+    for (size_t j = lo; j < hi_b; j++) positions[hb[j]].push_back(j);
+    size_t next_j = lo;
+    for (size_t i = lo; i < hi_a; i++) {
+      auto it = positions.find(ha[i]);
+      if (it == positions.end()) continue;
+      auto &v = it->second;
+      auto pos = std::lower_bound(v.begin(), v.end(), next_j);
+      if (pos != v.end() && same_tree(ca[i], cb[*pos], keep(ca[i]))) {
+        used_a[i] = used_b[*pos] = true;
+        next_j = *pos + 1;
+      }
     }
   }
-  for (size_t j = 0; j < rest_b.size(); j++)
-    if (!done_b[j])
-      out.push_back({"diff-added", file_b, path + " > " + segment(cb[rest_b[j]]), 0});
-  (void) paired;
+  // Pair remaining children in order when tags agree and recurse; identical
+  // leftovers are moves and show as removed + added.
+  std::map<std::string, std::vector<size_t>> rest_b;
+  for (size_t j = 0; j < m; j++) if (!used_b[j]) rest_b[tag_name(cb[j])].push_back(j);
+  std::map<std::string, size_t> taken;
+  std::vector<bool> done_b(m, false);
+  for (size_t i = 0; i < n; i++) {
+    if (used_a[i]) continue;
+    std::string tag = tag_name(ca[i]);
+    std::string seg_a = path_a + " > " + segment(ca[i]);
+    auto it = rest_b.find(tag);
+    size_t &next = taken[tag];
+    if (it == rest_b.end() || next >= it->second.size() || identical(i, it->second[next])) {
+      cx.out.push_back({"diff-removed", cx.file_a, seg_a, 0});
+      continue;
+    }
+    size_t j = it->second[next++];
+    done_b[j] = true;
+    diff_elements(ca[i], cb[j], seg_a, path_b + " > " + segment(cb[j]), keep(ca[i]), cx);
+  }
+  for (size_t j = 0; j < m; j++)
+    if (!used_b[j] && !done_b[j])
+      cx.out.push_back({"diff-added", cx.file_b, path_b + " > " + segment(cb[j]), 0});
 }
 
 } // namespace
@@ -180,7 +283,8 @@ size_t diff_documents(Document &a, Document &b, std::vector<DiffFinding> &out) {
     if (tag_name(c) == "html") root_b = c;
   if (!root_a || !root_b) throw std::string("document has no html element");
   size_t before = out.size();
-  diff_elements(root_a, root_b, "html", a.path, b.path, out);
+  DiffContext cx{a.path, b.path, out, {}, {}};
+  diff_elements(root_a, root_b, "html", "html", false, cx);
   return out.size() - before;
 }
 
