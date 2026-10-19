@@ -151,9 +151,11 @@ ok "link check rerun is byte-identical (deterministic)"
 [ "$(wc -l < "$WORK/multi.jsonl" | tr -d ' ')" = 2 ] || fail "multiple bytecode files did not run in order"
 ok "multiple bytecode files run sequentially against one embedded schema"
 
+SCHEMA_PATH="$HERE/schema/lmhtml.dsl.json"
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) SCHEMA_PATH="$(cygpath -w "$SCHEMA_PATH")";; esac
 compile_chunk() { # name body
   cat > "$WORK/$1.lms" <<EOF2
-p = _dsl_ schema="$HERE/schema/lmhtml.dsl.json";
+p = _dsl_ schema="$SCHEMA_PATH";
 $2
 end _dsl_
 savedsl(p, "$WORK/$1.dslb");
@@ -370,23 +372,33 @@ let only_index = html.load_dir("tests/fixtures/site", "index.html", "");
 report.add("g", "all", 0, str(all.len()));
 report.add("g", "nosub", 0, str(no_sub.len()));
 report.add("g", "only", 0, str(only_index.len()));
-report.add("g", "classes", 0, str(all.classes_used().len()));
-report.add("g", "css", 0, str(all.css_classes().len()));
-report.add("g", "ids", 0, str(all.ids().len()));
-report.add("g", "cssids", 0, str(all.css_ids().len()));
 report.write_text("'"$WORK"'/load-glob.txt");'
-"$HOST" --dsl "$WORK/load-glob.dslb" >"$WORK/load-glob.out" || { cat "$WORK/load-glob.out" >&2; fail "load-glob run"; }
+"$HOST" --dsl "$WORK/load-glob.dslb" >"$WORK/load-glob.out" 2>"$WORK/load-glob.err"; GLOB_RC=$?
+[ "$GLOB_RC" = 0 ] || { echo "load-glob exit=$GLOB_RC" >&2; cat "$WORK/load-glob.out" "$WORK/load-glob.err" >&2; fail "load-glob run"; }
 cat > "$WORK/load-glob.expected" <<'EOF'
 g all:0: 3
 g nosub:0: 2
 g only:0: 1
+EOF
+cmp "$WORK/load-glob.expected" "$WORK/load-glob.txt" || fail "load_dir globs wrong: $(cat "$WORK/load-glob.txt")"
+ok "load_dir include/exclude globs"
+
+compile_chunk doclist-agg 'let all = html.load_dir("tests/fixtures/site");
+report.add("g", "classes", 0, str(all.classes_used().len()));
+report.add("g", "css", 0, str(all.css_classes().len()));
+report.add("g", "ids", 0, str(all.ids().len()));
+report.add("g", "cssids", 0, str(all.css_ids().len()));
+report.write_text("'"$WORK"'/doclist-agg.txt");'
+"$HOST" --dsl "$WORK/doclist-agg.dslb" >"$WORK/doclist-agg.out" 2>"$WORK/doclist-agg.err"; AGG_RC=$?
+[ "$AGG_RC" = 0 ] || { echo "doclist-agg exit=$AGG_RC" >&2; cat "$WORK/doclist-agg.out" "$WORK/doclist-agg.err" >&2; fail "doclist-agg run"; }
+cat > "$WORK/doclist-agg.expected" <<'EOF'
 g classes:0: 3
 g css:0: 3
 g ids:0: 2
 g cssids:0: 1
 EOF
-cmp "$WORK/load-glob.expected" "$WORK/load-glob.txt" || fail "load_dir globs / DocList aggregation wrong: $(cat "$WORK/load-glob.txt")"
-ok "load_dir include/exclude globs and DocList site-wide classes_used/css_classes/ids/css_ids"
+cmp "$WORK/doclist-agg.expected" "$WORK/doclist-agg.txt" || fail "DocList aggregation wrong: $(cat "$WORK/doclist-agg.txt")"
+ok "DocList site-wide classes_used/css_classes/ids/css_ids"
 
 python3 - "$WORK" <<'PY'
 import pathlib,sys
