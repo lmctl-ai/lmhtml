@@ -9,6 +9,12 @@ error naming the file (`nesting depth exceeds 512 in FILE`). Two layers: a
 byte-level prescan before parsing (pathological nesting stalls the parser —
 300k nested `<div>` took ~30 s), and an authoritative iterative DOM depth
 check after. test.sh deletes its temp dir now (trap on EXIT).
+The prescan only guards parse time: it keeps a tag stack (close tags pop to
+their opener; `<li>`/`<td>`/`<p>`/... pop an open sibling within their own
+list/table scope; raw-text elements and all comment forms skipped; quotes
+only after `=`) and allows 4x the limit (2048); the DOM check is the exact
+512 policy. Earlier counter-only version refused 600 unclosed `<li>` and was
+bypassed by a stray `"`, `<!-->` or nested `<ul><li>` (parse hang).
 
 ## M3 — structural diff
 

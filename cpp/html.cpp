@@ -1,6 +1,7 @@
 #include "html.hpp"
 #include <cctype>
 #include <functional>
+#include <map>
 #include <set>
 #include <lexbor/css/css.h>
 #include <lexbor/css/rule.h>
@@ -27,21 +28,54 @@ std::unique_ptr<Document> parse_html(const std::string &html, const std::string 
 }
 
 // Cheap byte-level estimate before parsing: pathological nesting (hundreds of
-// thousands of open tags) stalls the parser, so refuse early. Heuristic —
-// handles comments, doctype, quoted attributes, raw-text elements, void
-// elements and self-closing tags; the DOM check below is authoritative.
+// thousands of open tags) stalls the parser, so refuse early. It only guards
+// the parse time, so it allows PRESCAN_NESTING (4x the real limit) and tracks
+// a tag stack: close tags pop to their opener, and tags whose start implies
+// the end of an open sibling (<li>, <td>, <p>, ...) pop it, so unclosed list
+// items or cells are not mistaken for nesting. The DOM check below enforces
+// MAX_NESTING exactly.
 void check_depth_prescan(const std::string &html, const std::string &path) {
   static const std::set<std::string> void_tags = {
       "area", "base", "br", "col", "embed", "hr", "img", "input",
       "link", "meta", "param", "source", "track", "wbr"};
+  // Content up to the matching end tag is text, not markup.
+  static const std::set<std::string> raw_text = {"script", "style", "textarea", "title",
+                                                 "xmp", "iframe", "noembed", "noframes"};
+  // Opening one of these closes a still-open element of the same group.
+  static const std::map<std::string, std::string> implied_group = {
+      {"li", "li"}, {"p", "p"}, {"dt", "d"}, {"dd", "d"}, {"option", "option"},
+      {"optgroup", "optgroup"}, {"tr", "tr"}, {"td", "cell"}, {"th", "cell"},
+      {"thead", "tsection"}, {"tbody", "tsection"}, {"tfoot", "tsection"},
+      {"rb", "ruby"}, {"rt", "ruby"}, {"rp", "ruby"}, {"rtc", "ruby"}};
+  // ...but only within its own container: a nested list/table/select starts
+  // a new scope (the parser nests <ul><li><ul><li> for real).
+  static const std::map<std::string, std::set<std::string>> group_scope = {
+      {"li", {"ul", "ol", "menu"}}, {"d", {"dl"}}, {"option", {"select", "datalist"}},
+      {"optgroup", {"select", "datalist"}}, {"tr", {"table"}}, {"cell", {"table", "tr"}},
+      {"tsection", {"table"}}, {"ruby", {"ruby"}}, {"p", {"button"}}};
+  static const std::set<std::string> any_scope = {"html", "body", "td", "th", "caption",
+                                                  "template", "object", "marquee", "applet"};
+  const size_t PRESCAN_NESTING = 4 * MAX_NESTING;
+  auto group_of = [](const std::string &tag) {
+    auto it = implied_group.find(tag);
+    return it == implied_group.end() ? std::string() : it->second;
+  };
   const size_t n = html.size();
-  size_t i = 0, depth = 0;
+  size_t i = 0;
+  std::vector<std::string> open;
   std::string where = path.empty() ? "<string>" : path;
   while (i < n) {
     if (html[i] != '<') { i++; continue; }
     if (html.compare(i, 4, "<!--") == 0) {
-      size_t end = html.find("-->", i + 4);
-      i = end == std::string::npos ? n : end + 3;
+      // "<!-->" and "<!--->" are complete (empty) comments; "--!>" also ends one.
+      if (html.compare(i + 4, 1, ">") == 0) { i += 5; continue; }
+      if (html.compare(i + 4, 2, "->") == 0) { i += 6; continue; }
+      size_t end = html.find("--", i + 4);
+      while (end != std::string::npos && html.compare(end + 2, 1, ">") != 0 &&
+             html.compare(end + 2, 2, "!>") != 0)
+        end = html.find("--", end + 1);
+      if (end == std::string::npos) break;
+      i = end + (html[end + 2] == '>' ? 3 : 4);
       continue;
     }
     if (i + 1 < n && (html[i + 1] == '!' || html[i + 1] == '?')) {
@@ -51,47 +85,65 @@ void check_depth_prescan(const std::string &html, const std::string &path) {
     }
     bool closing = i + 1 < n && html[i + 1] == '/';
     size_t j = i + 1 + (closing ? 1 : 0);
+    if (j >= n || !std::isalpha(static_cast<unsigned char>(html[j]))) { i++; continue; } // text "<"
     size_t name_start = j;
-    while (j < n && (std::isalnum(static_cast<unsigned char>(html[j])) || html[j] == '-')) j++;
+    while (j < n && !std::isspace(static_cast<unsigned char>(html[j])) && html[j] != '/' &&
+           html[j] != '>')
+      j++;
     std::string name = html.substr(name_start, j - name_start);
     for (auto &c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    // scan to '>' honoring quoted attribute values
+    // Scan to '>'; quotes only delimit a value right after '=' (a stray quote
+    // elsewhere is part of a name, as in the tokenizer).
     char quote = 0;
-    bool self_closing = false;
+    bool self_closing = false, after_equals = false;
     while (j < n) {
       char c = html[j];
       if (quote) { if (c == quote) quote = 0; }
-      else if (c == '"' || c == '\'') quote = c;
-      else if (c == '>') { break; }
-      else if (c == '/') { if (j + 1 < n && html[j + 1] == '>') self_closing = true; }
+      else if (after_equals && (c == '"' || c == '\'')) { quote = c; after_equals = false; }
+      else if (c == '>') break;
+      else if (c == '=') after_equals = true;
+      else if (!std::isspace(static_cast<unsigned char>(c))) {
+        after_equals = false;
+        if (c == '/' && j + 1 < n && html[j + 1] == '>') self_closing = true;
+      }
       j++;
     }
-    if (j >= n) break; // unterminated tag: stop estimating
+    if (j >= n) break; // unterminated tag: the parser drops it
     j++;
-    if (name.empty()) { i = j; continue; }
-    if (name == "script" || name == "style") {
-      // raw text: skip to the matching close tag
-      std::string closer = "</" + name;
-      size_t end = html.size();
-      for (size_t p = j; (p = html.find(closer, p)) != std::string::npos; p += closer.size()) {
-        char next = p + closer.size() < html.size() ? html[p + closer.size()] : '>';
-        if (next == '>' || next == ' ' || next == '\t' || next == '/' || next == '\n') { end = p; break; }
-      }
-      // also try an uppercase close (HTML is case-insensitive here)
-      if (end == std::string::npos) {
-        std::string upper = closer;
-        for (auto &c : upper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        end = html.find(upper, j);
-      }
-      i = end == std::string::npos ? n : end;
+    if (closing) {
+      for (size_t k = open.size(); k-- > 0;)
+        if (open[k] == name) { open.resize(k); break; }
+      i = j;
       continue;
     }
-    if (closing) { if (depth) depth--; }
-    else if (!self_closing && !void_tags.count(name)) {
-      depth++;
-      if (depth > MAX_NESTING)
-        throw std::string("nesting depth exceeds " + std::to_string(MAX_NESTING) +
-                          " in " + where);
+    if (name == "plaintext") break; // everything after is text
+    if (raw_text.count(name)) {
+      // skip to the matching close tag, ASCII case-insensitively
+      size_t end = j;
+      for (; end < n; end++) {
+        if (html[end] != '<' || end + 1 >= n || html[end + 1] != '/') continue;
+        if (end + 2 + name.size() > n) { end = n; break; }
+        bool match = true;
+        for (size_t k = 0; k < name.size() && match; k++)
+          match = std::tolower(static_cast<unsigned char>(html[end + 2 + k])) == name[k];
+        if (match) break;
+      }
+      i = end;
+      continue;
+    }
+    std::string group = group_of(name);
+    if (!group.empty()) {
+      const auto &scope = group_scope.at(group);
+      for (size_t k = open.size(); k-- > 0 && open.size() - k <= 8;) {
+        if (group_of(open[k]) == group) { open.resize(k); break; }
+        if (scope.count(open[k]) || (any_scope.count(open[k]) && group != "cell")) break;
+      }
+    }
+    if (!self_closing && !void_tags.count(name)) {
+      open.push_back(name);
+      if (open.size() > PRESCAN_NESTING)
+        throw std::string("nesting depth exceeds " + std::to_string(MAX_NESTING) + " in " +
+                          where);
     }
     i = j;
   }

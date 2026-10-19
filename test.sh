@@ -284,6 +284,23 @@ compile_chunk deep-ok 'let d = html.load("'"$WORK"'/deep-ok.html"); report.add("
 "$HOST" --dsl "$WORK/deep-ok.dslb" >/dev/null || fail "500-deep document must parse"
 [ "$(cat "$WORK/deep-ok.txt")" = "ok $WORK/deep-ok.html:0: 500" ] || fail "500-deep document content wrong: $(cat "$WORK/deep-ok.txt")"
 ok "document at 500 nesting levels parses fine (limit is 512)"
+# Prescan: unclosed siblings are not nesting; stray quotes, odd comments and
+# nested lists must not hide real depth from it (a stall, not a refusal).
+python3 - "$WORK" <<'PY'
+import sys
+w=sys.argv[1]
+open(w+'/flat-li.html','w').write('<ul>'+'<li>x'*600+'</ul><table>'+'<tr><td>x'*600+'</table>'+'<p>a'*600+'<textarea>'+'<div>'*600+'</textarea>')
+for name,body in {'quote':'<div x">'+'<div>'*300000,'comment':'<!-->'+'<div>'*300000+'-->','lists':'<ul><li>'*100000,'tables':'<table><tr><td>'*100000}.items():
+  open(w+'/deep-'+name+'.html','w').write(body)
+PY
+compile_chunk flat-li 'html.load("'"$WORK"'/flat-li.html");'
+"$HOST" --dsl "$WORK/flat-li.dslb" >/dev/null || fail "600 unclosed <li>/<td>/<p> falsely refused as deep nesting"
+for name in quote comment lists tables; do
+  compile_chunk "deep-$name" 'html.load("'"$WORK/deep-$name.html"'");'
+  set +e; out="$(timeout 10 "$HOST" --dsl "$WORK/deep-$name.dslb" 2>&1)"; code=$?; set -e
+  [ "$code" = 3 ] && [[ "$out" == *'nesting depth exceeds 512'* ]] || fail "depth prescan bypass via $name (exit $code): $out"
+done
+ok "depth prescan: unclosed siblings allowed; quote/comment/list/table bypasses refused fast"
 
 compile_chunk tpl-bad-k 'let d = html.load_dir("tests/fixtures/tpl"); html.write_template(d, 0, "'"$WORK"'/t.html");'
 set +e; out="$("$HOST" --dsl "$WORK/tpl-bad-k.dslb" 2>&1)"; code=$?; set -e
