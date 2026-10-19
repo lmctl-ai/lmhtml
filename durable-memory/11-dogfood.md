@@ -1,7 +1,7 @@
 # Dogfood on real sites
 
 Machine checked (2026-10-19). Sites mirrored with wget into the scratch dir
-`~/poc/lmhtml-real` (NOT committed; licenses fine for local testing):
+a local scratch directory outside the repo (NOT committed; licenses fine for local testing):
 **rust-book** (mdbook, 114 pages, 8.3 MB), **jekyll** (jekyllrb.com, 211
 pages, 7.7 MB), **sphinx** (sphinx-doc.org, 203 pages, 12 MB). First mirrors
 flattened directories / dropped `?query` assets — re-mirrored preserving

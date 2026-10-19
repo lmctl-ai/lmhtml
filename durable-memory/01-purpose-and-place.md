@@ -5,7 +5,7 @@
 **lmhtml is a single self-contained native CLI for bulk HTML work**: checking
 broken links, catching CSS class/id typos, structural diff of pages, extracting
 common parts into a template, and rewriting shared parts across many pages.
-It is scriptable: the operator writes lmscript `_dsl_` chunks against the one
+It is scriptable: a user writes lmscript `_dsl_` chunks against the one
 embedded schema; the host executes the bytecode and owns all state.
 
 ## Place in the stack
@@ -15,7 +15,7 @@ embedded schema; the host executes the bytecode and owns all state.
 - **cpp-dsl-sdk** (`include/dslvm.hpp`, header-only, bytecode v5) is vendored as
   a single header `cpp/dslvm.hpp`, pinned by `sdk.lock` (repo/commit/sha256),
   exactly like lmcad. It executes `_dsl_` bytecode; it never parses HTML.
-- **lmscript** (in `~/lmctl-mono`, never modified) compiles `_dsl_` chunks
+- **lmscript** (lmctl-mono, not public; published via npm `@lmctl-ai/lmctl`) compiles `_dsl_` chunks
   against `schema/lmhtml.dsl.json` into `.dslb` bytecode. Tests compile through
   a thin Node `--experimental-strip-types` adapter importing `dsl.ts`, the same
   approach as lmcad's `scripts/lmscript-mono.{sh,mjs}`.

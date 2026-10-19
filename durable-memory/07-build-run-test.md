@@ -12,7 +12,7 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
   (`--verify` is the second test check).
 - Compiler: `scripts/select-compiler.sh` probes a real chunk and requires
   `DSLB\x00\x05`; falls back to `scripts/lmscript-mono.sh` (Node
-  `--experimental-strip-types`, imports `~/lmctl-mono/lmscript/dsl.ts`,
+  `--experimental-strip-types`, imports a local lmscript `dsl.ts` (`LMSCRIPT_SOURCE`),
   refuses any `DSL_VERSION` other than 5).
 
 ## Build

@@ -1,7 +1,7 @@
 # Schema v0
 
 Form: `"dsl.schema": 2` (array-of-overloads signatures), bytecode v5 — the form
-the **current** compiler at `~/lmctl-mono/lmscript/dsl.ts` accepts
+the **current** lmscript compiler (`dsl.ts`, lmctl-mono) accepts
 (`DSL_VERSION = 5`, schema-1 singletons refused). Validated for real, not
 guessed: a scratch copy of lmcad's adapter approach (Node
 `--experimental-strip-types`, importing `dsl.ts` directly) ran

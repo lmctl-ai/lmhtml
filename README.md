@@ -8,9 +8,10 @@ cpp-dsl-sdk header. See `durable-memory/` for design notes.
 ## Requirements
 
 - C++17 toolchain, CMake >= 3.24, Ninja
-- Node with `--experimental-strip-types` plus the lmscript sources at
-  `~/lmctl-mono/lmscript` (override with `LMSCRIPT_SOURCE`), or an `lmscript`
-  on PATH that emits DSL bytecode v5
+- An lmscript compiler that emits DSL bytecode v5: `npm i -g @lmctl-ai/lmctl`
+  (Node 22+) puts `lmscript` on PATH; `scripts/select-compiler.sh` probes it.
+  (Maintainers can instead point `LMSCRIPT_SOURCE` at a local lmscript source
+  checkout for `scripts/lmscript-mono.sh`; those sources are not public.)
 - Python 3 (test assertions only)
 
 ## Setup
