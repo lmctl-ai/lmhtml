@@ -1,0 +1,6 @@
+.from-ext { color: red; }
+#ext-id { margin: 0; }
+@media screen and (min-width: 600px) {
+  .in-media { color: blue; }
+  #media-id { padding: 0; }
+}

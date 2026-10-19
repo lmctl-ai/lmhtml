@@ -45,8 +45,8 @@ struct Host {
   }
   template <class T>
   Value hold(std::vector<std::unique_ptr<T>> &arena, const char *type, T value) {
-    if (arena.size() >= 4096)
-      throw dslvm::Error(std::string(type) + " object limit exceeded (4096)");
+    if (arena.size() >= 65536)
+      throw dslvm::Error(std::string(type) + " object limit exceeded (65536)");
     arena.push_back(std::make_unique<T>(std::move(value)));
     return Value::object(type, arena.back().get());
   }
@@ -479,14 +479,25 @@ void register_host(dslvm::Registry &r, Host &h) {
   checked_method(r, "Doc", "classes_used", {}, "StrList", [&h](void *p, Args &) {
     return h.hold(h.str_lists, "StrList", lmhtml::classes_used(*doc_of(p, "Doc.classes_used")));
   });
-  checked_method(r, "Doc", "css_classes", {}, "StrList", [&h](void *p, Args &) {
+  // External stylesheets resolve like links: external/missing files skip.
+  auto css_resolver = [&h](lmhtml::Document *doc) {
+    return [&h, doc](const std::string &href) -> std::string {
+      LinkTarget t = resolve_link(h, doc, href);
+      if (t.external || t.same_page || t.file.empty()) return "";
+      std::error_code ec;
+      return std::filesystem::is_regular_file(t.file, ec) ? t.file : "";
+    };
+  };
+  checked_method(r, "Doc", "css_classes", {}, "StrList", [&h, css_resolver](void *p, Args &) {
+    auto *doc = doc_of(p, "Doc.css_classes");
     std::vector<std::string> classes, ids;
-    lmhtml::css_names(*doc_of(p, "Doc.css_classes"), classes, ids);
+    lmhtml::css_names(*doc, classes, ids, css_resolver(doc));
     return h.hold(h.str_lists, "StrList", std::move(classes));
   });
-  checked_method(r, "Doc", "css_ids", {}, "StrList", [&h](void *p, Args &) {
+  checked_method(r, "Doc", "css_ids", {}, "StrList", [&h, css_resolver](void *p, Args &) {
+    auto *doc = doc_of(p, "Doc.css_ids");
     std::vector<std::string> classes, ids;
-    lmhtml::css_names(*doc_of(p, "Doc.css_ids"), classes, ids);
+    lmhtml::css_names(*doc, classes, ids, css_resolver(doc));
     return h.hold(h.str_lists, "StrList", std::move(ids));
   });
   checked_method(r, "Doc", "ids", {}, "StrList", [&h](void *p, Args &) {

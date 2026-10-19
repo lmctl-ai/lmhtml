@@ -1,8 +1,11 @@
 #include "html.hpp"
 #include <cctype>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <set>
+#include <sstream>
+#include <lexbor/css/at_rule.h>
 #include <lexbor/css/css.h>
 #include <lexbor/css/rule.h>
 #include <lexbor/css/stylesheet.h>
@@ -274,6 +277,28 @@ static void walk(lxb_dom_node_t *node, const std::function<void(lxb_dom_node_t *
   }
 }
 
+// srcset = comma-separated "url descriptor" entries; data: URLs contain a
+// comma, so the base64 tail is rejoined before yielding.
+static void harvest_srcset(const std::string &srcset, std::vector<std::string> &links) {
+  size_t pos = 0;
+  while (pos < srcset.size()) {
+    size_t comma = srcset.find(',', pos);
+    std::string piece = srcset.substr(pos, comma == std::string::npos ? comma : comma - pos);
+    pos = comma == std::string::npos ? srcset.size() : comma + 1;
+    size_t first = piece.find_first_not_of(" \t\n");
+    if (first == std::string::npos) continue;
+    size_t last = piece.find_last_not_of(" \t\n");
+    piece = piece.substr(first, last - first + 1);
+    if (piece.rfind("data:", 0) == 0 && pos < srcset.size()) {
+      // base64 payload continues past the comma
+      size_t next = srcset.find(',', pos);
+      pos = next == std::string::npos ? srcset.size() : next + 1;
+    }
+    // url is the first whitespace-separated token; the rest is a descriptor
+    links.push_back(piece.substr(0, piece.find_first_of(" \t\n")));
+  }
+}
+
 std::vector<std::string> collect_links(Document &doc) {
   std::vector<std::string> links;
   walk(lxb_dom_interface_node(doc.tree), [&](lxb_dom_node_t *node) {
@@ -283,9 +308,14 @@ std::vector<std::string> collect_links(Document &doc) {
     std::string name;
     if (tag == "a" || tag == "link") name = "href";
     else if (tag == "img" || tag == "script") name = "src";
+    else if (tag == "source") name = "";
     else return;
-    std::string value = attr(node, name);
-    if (!value.empty()) links.push_back(value);
+    if (!name.empty()) {
+      std::string value = attr(node, name);
+      if (!value.empty()) links.push_back(value);
+    }
+    if ((tag == "img" || tag == "source") && has_attr(node, "srcset"))
+      harvest_srcset(attr(node, "srcset"), links);
   });
   return links;
 }
@@ -339,14 +369,45 @@ static void harvest_selector_list(const lxb_css_selector_list_t *list,
     }
 }
 
-void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std::string> &ids) {
+static void harvest_rules(const lxb_css_rule_list_t *rules,
+                          std::set<std::string> &classes, std::set<std::string> &ids) {
+  if (!rules) return;
+  for (lxb_css_rule_t *rule = rules->first; rule; rule = rule->next) {
+    if (rule->type == LXB_CSS_RULE_STYLE)
+      harvest_selector_list(lxb_css_rule_style(rule)->selector, classes, ids);
+    else if (rule->type == LXB_CSS_RULE_AT_RULE) {
+      auto *at = reinterpret_cast<lxb_css_rule_at_t *>(rule);
+      if (at->u.media) harvest_rules(at->u.media->block, classes, ids);
+    }
+  }
+}
+
+void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std::string> &ids,
+               const std::function<std::string(const std::string &href)> &resolve_css) {
   std::set<std::string> class_set, id_set;
   lxb_css_parser_t *parser = lxb_css_parser_create();
   if (!parser || lxb_css_parser_init(parser, nullptr) != LXB_STATUS_OK)
     throw std::string("out of memory creating CSS parser");
   lxb_css_parser_selectors_init(parser);
-  for (auto *node : select(lxb_dom_interface_node(doc.tree), "style")) {
-    std::string css = text_content(node);
+
+  std::vector<std::string> sheets;
+  for (auto *node : select(lxb_dom_interface_node(doc.tree), "style"))
+    sheets.push_back(text_content(node));
+  for (auto *node : select(lxb_dom_interface_node(doc.tree), "link[rel]")) {
+    std::string rel = attr(node, "rel");
+    std::string rel_lower;
+    for (char c : rel) rel_lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (rel_lower.find("stylesheet") == std::string::npos) continue;
+    std::string path = resolve_css(attr(node, "href"));
+    if (path.empty()) continue;
+    std::ifstream in(path, std::ios::binary);
+    if (!in) continue; // missing stylesheet: not a typo-check concern
+    std::ostringstream data;
+    data << in.rdbuf();
+    sheets.push_back(data.str());
+  }
+
+  for (const auto &css : sheets) {
     lxb_css_stylesheet_t *sst = lxb_css_stylesheet_create(nullptr);
     if (!sst || lxb_css_stylesheet_parse(sst, parser,
                                          reinterpret_cast<const lxb_char_t *>(css.data()),
@@ -354,14 +415,10 @@ void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std
       if (sst) lxb_css_stylesheet_destroy(sst, true);
       lxb_css_parser_selectors_destroy(parser);
       lxb_css_parser_destroy(parser, true);
-      throw std::string("out of memory parsing inline stylesheet");
+      throw std::string("out of memory parsing stylesheet");
     }
-    if (sst->root && sst->root->type == LXB_CSS_RULE_LIST) {
-      auto *rules = reinterpret_cast<lxb_css_rule_list_t *>(sst->root);
-      for (lxb_css_rule_t *rule = rules->first; rule; rule = rule->next)
-        if (rule->type == LXB_CSS_RULE_STYLE)
-          harvest_selector_list(lxb_css_rule_style(rule)->selector, class_set, id_set);
-    }
+    if (sst->root && sst->root->type == LXB_CSS_RULE_LIST)
+      harvest_rules(reinterpret_cast<lxb_css_rule_list_t *>(sst->root), class_set, id_set);
     lxb_css_stylesheet_destroy(sst, true);
   }
   lxb_css_parser_selectors_destroy(parser);

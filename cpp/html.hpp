@@ -4,6 +4,7 @@
 // All functions throw std::string on failure; nodes are owned by their
 // Document and must not be freed or outlive it.
 #include <lexbor/html/html.h>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -40,9 +41,12 @@ std::vector<std::string> collect_links(Document &doc); // a/link href + img/scri
 bool has_anchor(Document &doc, const std::string &fragment);
 std::vector<std::string> classes_used(Document &doc);  // sorted unique class tokens
 std::vector<std::string> ids_used(Document &doc);      // sorted unique id values
-// .class and #id names defined by the document's inline <style> sheets.
-// v0: top-level style rules only (rules nested in @media are not harvested).
-void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std::string> &ids);
+// .class and #id names defined by the document's stylesheets: inline <style>
+// elements plus external <link rel="stylesheet"> files resolved by the
+// caller (return "" to skip, e.g. external URLs or missing files).
+// @media blocks are recursed into; @font-face/@keyframes carry no selectors.
+void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std::string> &ids,
+               const std::function<std::string(const std::string &href)> &resolve_css);
 
 // Mutations (M5). All throw std::string on misuse; inserted nodes are owned
 // by the document like any other node.

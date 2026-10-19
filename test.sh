@@ -353,6 +353,37 @@ set +e; out="$("$HOST" --dsl "$WORK/tpl-bad-k.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'k must be at least 1'* ]] || fail "write_template k=0 refusal (exit $code): $out"
 ok "write_template refuses k < 1 (exit 3)"
 
+compile_chunk ext-css 'let d = html.load("tests/fixtures/realworld/ext-css/page.html");
+let defined = d.css_classes();
+let used = d.classes_used();
+let missing = str_difference(used, defined);
+for (j in range(0, missing.len())) { report.add("class-undefined", d.path(), 0, missing.at(j)); }
+let ids_defined = d.css_ids();
+let ids_used = d.ids();
+let ids_missing = str_difference(ids_defined, ids_used);
+for (m in range(0, ids_missing.len())) { report.add("id-unused", d.path(), 0, ids_missing.at(m)); }
+report.write_text("'"$WORK"'/ext-css.txt");'
+"$HOST" --dsl "$WORK/ext-css.dslb" >/dev/null || fail "ext-css run"
+cat > "$WORK/ext-css.expected" <<'EOF'
+class-undefined tests/fixtures/realworld/ext-css/page.html:0: frm-ext
+id-unused tests/fixtures/realworld/ext-css/page.html:0: ext-id
+id-unused tests/fixtures/realworld/ext-css/page.html:0: media-id
+EOF
+cmp "$WORK/ext-css.expected" "$WORK/ext-css.txt" || fail "external stylesheet + @media harvesting wrong: $(cat "$WORK/ext-css.txt")"
+ok "css_classes/css_ids read linked stylesheets and @media blocks"
+
+compile_chunk srcset 'let d = html.load("tests/fixtures/realworld/srcset/page.html");
+let links = d.links();
+for (j in range(0, links.len())) {
+  let url = links.at(j);
+  if (!html.link_exists(d, url)) { report.add("broken-link", d.path(), 0, url); }
+}
+report.write_text("'"$WORK"'/srcset.txt");'
+"$HOST" --dsl "$WORK/srcset.dslb" >/dev/null || fail "srcset run"
+echo 'broken-link tests/fixtures/realworld/srcset/page.html:0: missing.png' > "$WORK/srcset.expected"
+cmp "$WORK/srcset.expected" "$WORK/srcset.txt" || fail "srcset link collection wrong: $(cat "$WORK/srcset.txt")"
+ok "img srcset URLs collected for link checking (data: srcset ignored)"
+
 "$HOST" --dsl build/rewrite-nav.dslb >"$WORK/rewrite.jsonl" || fail "rewrite-nav run"
 cat > "$WORK/expected-rewrite.txt" <<'EOF'
 diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
