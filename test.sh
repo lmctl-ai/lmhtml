@@ -527,6 +527,29 @@ set +e; out="$(timeout 10 "$HOST" --dsl "$WORK/glob-costly.dslb" 2>&1)"; code=$?
 [ "$code" = 3 ] && [[ "$out" == *'too costly'* ]] || fail "costly glob not bounded (exit $code): $out"
 ok "str_match: escapes, literal '[', empty cases; 1 MiB x 32 KiB worst case refused fast"
 
+compile_chunk link-kinds 'let pages = html.load_dir("tests/fixtures/link-kinds");
+for (i in range(0, pages.len())) { let p = pages.at(i); let l = p.links();
+  for (j in range(0, l.len())) { report.add(html.link_kind(p, l.at(j)), p.path(), j, ""); } }
+report.write_text("'"$WORK"'/link-kinds.txt");'
+"$HOST" --dsl "$WORK/link-kinds.dslb" >/dev/null || fail "link-kinds run"
+K=tests/fixtures/link-kinds
+cat > "$WORK/link-kinds.expected" <<EOF
+external $K/based/ext.html:0: 
+external $K/index.html:0: 
+special $K/index.html:1: 
+special $K/index.html:2: 
+external $K/index.html:3: 
+external $K/index.html:4: 
+internal-page $K/index.html:5: 
+internal-page $K/index.html:6: 
+anchor $K/index.html:7: 
+outside-root $K/index.html:8: 
+special $K/index.html:9: 
+internal-asset $K/index.html:10: 
+EOF
+diff -u "$WORK/link-kinds.expected" "$WORK/link-kinds.txt" || fail "link_kind classification"
+ok "link_kind: uppercase scheme, tab/newline in scheme, backslash hosts, .HTML, base href"
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"

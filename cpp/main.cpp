@@ -221,15 +221,28 @@ struct LinkTarget {
   bool same_page = false; // "#x" / "?q" without <base href>: the page itself
 };
 
+// What a browser does to an href before parsing it (WHATWG URL): strip
+// leading/trailing C0 controls and spaces, drop every tab/newline (so
+// "java\tscript:" is javascript:), and read '\' as '/' unless the URL has a
+// non-web scheme (so "\\evil.com" is the protocol-relative //evil.com).
+std::string clean_url(const std::string &raw) {
+  auto c0_or_space = [](char c) { return static_cast<unsigned char>(c) <= 0x20; };
+  size_t b = 0, e = raw.size();
+  while (b < e && c0_or_space(raw[b])) b++;
+  while (e > b && c0_or_space(raw[e - 1])) e--;
+  std::string url;
+  for (size_t i = b; i < e; i++)
+    if (raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r') url += raw[i];
+  std::string scheme = lmhtml::strlib::lower(lmhtml::url_scheme(url));
+  if (scheme.empty() || scheme == "http" || scheme == "https" || scheme == "file" ||
+      scheme == "ws" || scheme == "wss" || scheme == "ftp")
+    std::replace(url.begin(), url.end(), '\\', '/');
+  return url;
+}
+
 LinkTarget resolve_link(Host &h, lmhtml::Document *doc, const std::string &raw) {
   LinkTarget t;
-  const char *space = " \t\n\f\r";
-  std::string url = raw;
-  url.erase(0, std::min(url.size(), url.find_first_not_of(space)));
-  url.erase(url.find_last_not_of(space) + 1);
-  url.erase(std::remove_if(url.begin(), url.end(),
-                           [](char c) { return c == '\t' || c == '\n' || c == '\r'; }),
-            url.end());
+  std::string url = clean_url(raw);
   if (is_external(url)) {
     t.external = true;
     return t;
@@ -313,24 +326,20 @@ bool link_exists(Host &h, lmhtml::Document *doc, const std::string &url) {
 // outside-root (escapes the load_dir root), internal-page (.html/.htm or a
 // directory), internal-asset (anything else). Existence stays link_exists.
 std::string link_kind(Host &h, lmhtml::Document *doc, const std::string &raw) {
-  const char *space = " \t\n\f\r";
-  std::string url = raw;
-  url.erase(0, std::min(url.size(), url.find_first_not_of(space)));
-  url.erase(std::min(url.size(), url.find_last_not_of(space) + 1));
-  std::string scheme = lmhtml::url_scheme(url);
-  if (!scheme.empty())
-    return scheme == "http" || scheme == "https" ? "external" : "special";
-  if (url.rfind("//", 0) == 0) return "external";
-  if (!url.empty() && url[0] == '#') return "anchor";
+  std::string url = clean_url(raw);
+  std::string scheme = lmhtml::strlib::lower(lmhtml::url_scheme(url));
+  if (!scheme.empty()) return scheme == "http" || scheme == "https" ? "external" : "special";
+  // Same rules as link_exists: <base href> decides what "#x" points at.
   LinkTarget t = resolve_link(h, doc, url);
   if (t.external) return "external";
+  if (t.same_page) return t.has_fragment ? "anchor" : "internal-page";
   if (t.outside_root) return "outside-root";
-  std::string file = t.file;
+  std::string file = lmhtml::strlib::lower(t.file);
   std::string::size_type dot = file.rfind('.');
   std::string ext = dot == std::string::npos ? "" : file.substr(dot);
   if (ext == ".html" || ext == ".htm") return "internal-page";
   std::error_code ec;
-  if (std::filesystem::is_directory(file, ec)) return "internal-page";
+  if (std::filesystem::is_directory(t.file, ec)) return "internal-page";
   return "internal-asset";
 }
 
