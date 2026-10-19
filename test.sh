@@ -633,6 +633,17 @@ set +e; scripts/npm-layout.sh "$NPMART" "$WORK/npm-bad" v1 >/dev/null 2>&1; code
 [ "$code" = 2 ] || fail "npm layout accepted non-semver version (exit $code)"
 ok "npm layout: versions in sync, os/cpu, exec bits, private, non-semver refused"
 
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*)
+  # Windows-only aliases: device names, alternate data streams, trailing dots.
+  for name in con.html "page.html:hidden" "page.html." "sub/aux/x.html"; do
+    compile_chunk win-name 'html.save(html.parse("<p>x</p>"), "build/win-out/'"$name"'");'
+    set +e; out="$("$HOST" --dsl "$WORK/win-name.dslb" 2>&1)"; code=$?; set -e
+    [ "$code" = 3 ] && [[ "$out" == *'unsafe Windows path component'* ]] || fail "Windows alias '$name' not refused (exit $code): $out"
+  done
+  ok "Windows: CON/AUX device names, :streams, trailing dots refused by Html.save"
+  ;;
+esac
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"

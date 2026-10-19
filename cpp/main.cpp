@@ -8,6 +8,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <random>
+#include <cwctype>
 #include <sys/stat.h>
 #include <unistd.h>
 #ifdef _WIN32
@@ -371,32 +372,99 @@ template <class F> Value translate_errors(F &&fn) {
 // preservation are skipped; atomicity is kept via temp file + MoveFileEx
 // replace. The path itself is still verified against the root beforehand.
 #ifdef _WIN32
+// Names Win32 maps to something other than the file the path names:
+// reserved devices (CON, NUL, COM1, "nul.html" on older Windows), alternate
+// data streams ("a.html:x"), and trailing dots/spaces (silently stripped,
+// so "a.html." aliases "a.html").
+bool windows_unsafe_component(const std::wstring &part) {
+  if (part.empty() || part.back() == L'.' || part.back() == L' ') return true;
+  for (wchar_t c : part)
+    if (c < 0x20 || c == L':' || c == L'<' || c == L'>' || c == L'"' || c == L'|' ||
+        c == L'?' || c == L'*')
+      return true;
+  std::wstring base = part.substr(0, part.find(L'.'));
+  while (!base.empty() && base.back() == L' ') base.pop_back();
+  for (auto &c : base) c = static_cast<wchar_t>(towupper(c));
+  static const wchar_t *devices[] = {L"CON", L"PRN", L"AUX", L"NUL", L"CONIN$", L"CONOUT$"};
+  for (const wchar_t *d : devices)
+    if (base == d) return true;
+  if (base.size() == 4 && (base.compare(0, 3, L"COM") == 0 || base.compare(0, 3, L"LPT") == 0) &&
+      ((base[3] >= L'0' && base[3] <= L'9') || base[3] == 0xB9 || base[3] == 0xB2 || base[3] == 0xB3))
+    return true;
+  return false;
+}
+
+// Windows (MinGW has no openat/O_NOFOLLOW/fchmod). Kept: the path is checked
+// against the root first; each component below the root must be a plain
+// file name; the temp file is a fresh CREATE_NEW name in the target
+// directory (a planted symlink/junction at that name makes creation fail,
+// never redirects it), flushed, and MoveFileExW'ed over the target
+// (REPLACE_EXISTING | WRITE_THROUGH; atomic on one NTFS volume); wide-char
+// APIs throughout (no ANSI code page). Lost vs POSIX: directories below
+// the root are not opened without following reparse points, so a directory
+// swapped for a junction between the check and the write can redirect it
+// (TOCTOU); file mode/ACLs of a replaced file are not carried over.
 void write_inside_root(const std::string &root, const std::string &target,
                        const std::string &content, const std::string &shown) {
-  auto fail = [&](const std::string &why) { throw dslvm::Error("Html.save: " + why + ": " + shown); };
-  std::error_code ec;
-  std::filesystem::create_directories(std::filesystem::path(target).parent_path(), ec);
-  if (ec) fail("cannot create directories");
-  static unsigned counter = 0;
-  std::string tmp = target + ".lmhtml-" + std::to_string(_getpid()) + "-" +
-                    std::to_string(++counter);
-  {
-    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-    if (!out) fail("cannot create temp file");
-    out << content;
-    out.flush();
-    if (!out) {
-      out.close();
-      std::filesystem::remove(tmp, ec);
-      fail("failed writing");
+  auto fail = [&](const std::string &why) {
+    throw dslvm::Error("Html.save: " + why + ": " + shown + " (Win32 error " +
+                       std::to_string(GetLastError()) + ")");
+  };
+  const std::filesystem::path root_path(root), target_path(target);
+  std::filesystem::path rel = target_path.lexically_relative(root_path);
+  if (rel.empty()) fail("path is outside the output root");
+  for (const auto &part : rel) {
+    std::wstring w = part.wstring();
+    if (w == L"." || w == L".." || windows_unsafe_component(w)) {
+      SetLastError(ERROR_INVALID_NAME);
+      fail("unsafe Windows path component '" + part.string() + "'");
     }
   }
-  if (!MoveFileExA(tmp.c_str(), target.c_str(),
-                   MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-    std::filesystem::remove(tmp, ec);
-    fail("cannot rename into place");
+  std::error_code ec;
+  std::filesystem::create_directories(target_path.parent_path(), ec);
+  if (ec) fail("cannot create directories");
+  const std::wstring wtarget = target_path.wstring();
+  DWORD attrs = GetFileAttributesW(wtarget.c_str());
+  if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+    SetLastError(ERROR_DIRECTORY);
+    fail("target is not a regular file");
   }
-  (void) root;
+  static unsigned counter = 0;
+  std::wstring wtmp;
+  HANDLE h = INVALID_HANDLE_VALUE;
+  for (int attempt = 0; h == INVALID_HANDLE_VALUE && attempt < 100; attempt++) {
+    std::wstring name = L"." + target_path.filename().wstring() + L".lmhtml-" +
+                        std::to_wstring(_getpid()) + L"-" + std::to_wstring(++counter) + L"-" +
+                        std::to_wstring(std::random_device{}() & 0xffffff);
+    wtmp = (target_path.parent_path() / name).wstring();
+    h = CreateFileW(wtmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                    FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE && GetLastError() != ERROR_FILE_EXISTS) break;
+  }
+  if (h == INVALID_HANDLE_VALUE) fail("cannot create temp file");
+  auto discard = [&](const std::string &why) {
+    DWORD err = GetLastError();
+    if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
+    DeleteFileW(wtmp.c_str());
+    SetLastError(err);
+    fail(why);
+  };
+  for (size_t off = 0; off < content.size();) {
+    DWORD chunk = static_cast<DWORD>(std::min<size_t>(content.size() - off, 1u << 30));
+    DWORD written = 0;
+    if (!WriteFile(h, content.data() + off, chunk, &written, nullptr) || written == 0)
+      discard("failed writing");
+    off += written;
+  }
+  if (!FlushFileBuffers(h)) discard("failed writing");
+  if (!CloseHandle(h)) {
+    h = INVALID_HANDLE_VALUE;
+    discard("failed writing");
+  }
+  h = INVALID_HANDLE_VALUE;
+  if (!MoveFileExW(wtmp.c_str(), wtarget.c_str(),
+                   MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+    discard("cannot rename into place");
 }
 #else
 void write_inside_root(const std::string &root, const std::string &target,
