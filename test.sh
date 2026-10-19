@@ -196,7 +196,7 @@ EOF
 diff -u "$WORK/link-policy.expected" "$WORK/link-policy.txt" || fail "link resolution policy"
 ok "link policy: dirs, query, percent-encoding, base href, root, schemes, escapes"
 
-compile_chunk not-implemented 'html.parse("<p>x</p>").classes_used();'
+compile_chunk not-implemented 'let d = html.parse("<p>x</p>"); html.diff(d, d);'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"
 ok "later-milestone members refuse cleanly (exit 3)"
