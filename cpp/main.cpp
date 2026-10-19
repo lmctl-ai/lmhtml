@@ -752,10 +752,11 @@ void register_host(dslvm::Registry &r, Host &h) {
       if (!it->is_regular_file(entry_ec)) continue;
       std::string ext = it->path().extension().string();
       if (ext != ".html" && ext != ".htm") continue;
-      std::string rel = it->path().lexically_relative(dir).string();
+      // paths are normalized to forward slashes everywhere the DSL sees them
+      std::string rel = it->path().lexically_relative(dir).generic_string();
       if (!include.empty() && include != "*" && !glob_path_match(rel, include_pat)) continue;
       if (!exclude.empty() && glob_path_match(rel, exclude_pat)) continue;
-      files.push_back(it->path().string());
+      files.push_back(it->path().generic_string());
     }
     if (ec) throw dslvm::Error("Html.load_dir: cannot list " + dir + ": " + ec.message());
     std::sort(files.begin(), files.end());

@@ -375,7 +375,7 @@ report.add("g", "css", 0, str(all.css_classes().len()));
 report.add("g", "ids", 0, str(all.ids().len()));
 report.add("g", "cssids", 0, str(all.css_ids().len()));
 report.write_text("'"$WORK"'/load-glob.txt");'
-"$HOST" --dsl "$WORK/load-glob.dslb" >/dev/null || fail "load-glob run"
+"$HOST" --dsl "$WORK/load-glob.dslb" >"$WORK/load-glob.out" || { cat "$WORK/load-glob.out" >&2; fail "load-glob run"; }
 cat > "$WORK/load-glob.expected" <<'EOF'
 g all:0: 3
 g nosub:0: 2
