@@ -354,6 +354,13 @@ void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std
 void set_attr(lxb_dom_node_t *node, const std::string &name, const std::string &value) {
   lxb_dom_element_t *el = as_element(node);
   if (!el) throw std::string("set_attr on a non-element node");
+  // A name the tokenizer could not produce would serialize as markup
+  // (set_attr("x><script>...", "")) or as several attributes.
+  if (name.empty()) throw std::string("empty attribute name");
+  for (unsigned char c : name)
+    if (c <= 0x20 || c == 0x7f || c == '"' || c == '\'' || c == '>' || c == '/' || c == '=' ||
+        c == '<')
+      throw std::string("invalid attribute name: " + name);
   if (!lxb_dom_element_set_attribute(el, reinterpret_cast<const lxb_char_t *>(name.data()),
                                      name.size(),
                                      reinterpret_cast<const lxb_char_t *>(value.data()),
@@ -370,15 +377,29 @@ static lxb_dom_node_t *splice_fragment(lxb_dom_node_t *node, const std::string &
                                        bool before, bool replace) {
   lxb_dom_node_t *parent = node->parent;
   if (!parent) throw std::string("cannot splice at a node with no parent");
-  lxb_dom_element_t *context = parent->type == LXB_DOM_NODE_TYPE_ELEMENT
-                                   ? lxb_dom_interface_element(parent)
-                                   : lxb_dom_interface_element(lxb_html_document_body_element(
-                                         lxb_html_interface_document(node->owner_document)));
-  if (!context) throw std::string("cannot splice here: no element context");
+  // Fragments parsed in the <html> context come back as a new <head> and
+  // <body>; next to the root they would replace the whole document. Splice
+  // inside <head>/<body> instead.
+  if (parent->type != LXB_DOM_NODE_TYPE_ELEMENT || tag_name(parent) == "html")
+    throw std::string("cannot splice at <" + tag_name(node) +
+                      ">: select a node inside <head> or <body>");
+  lxb_dom_element_t *context = lxb_dom_interface_element(parent);
+  check_depth_prescan(html, "fragment");
+  size_t parent_depth = 0;
+  for (lxb_dom_node_t *n = parent; n; n = n->parent) parent_depth++;
   lxb_dom_node_t *frag = lxb_html_document_parse_fragment(
       lxb_html_interface_document(node->owner_document), context,
       reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
   if (!frag || !frag->first_child) throw std::string("HTML fragment produced no nodes");
+  // The tree must stay within MAX_NESTING (diff/hash recurse over it).
+  std::vector<std::pair<lxb_dom_node_t *, size_t>> stack{{frag, 0}};
+  while (!stack.empty()) {
+    auto [n, depth] = stack.back();
+    stack.pop_back();
+    if (parent_depth + depth > MAX_NESTING + 1)
+      throw std::string("fragment would nest deeper than " + std::to_string(MAX_NESTING));
+    for (lxb_dom_node_t *c = n->first_child; c; c = c->next) stack.push_back({c, depth + 1});
+  }
   lxb_dom_node_t *first = frag->first_child;
   lxb_dom_node_t *anchor = node;
   while (frag->first_child) {

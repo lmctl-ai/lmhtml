@@ -400,6 +400,21 @@ set +e; out="$(cd "$OUTROOT" && trap '' XFSZ && ulimit -f 100 && "$HERE/$HOST" -
 [ -z "$(ls -A "$OUTROOT" | grep -v -e '^sub$' -e '^mode.html$')" ] || fail "failed save left files: $(ls -A "$OUTROOT")"
 ok "save: planted temp symlink harmless, mode kept, dir/slash refused, failed write leaves no temp"
 
+# Mutation guards: deep fragments (parser stall / recursion crash), attribute
+# names that serialize as markup, splices that would replace <head>/<body>.
+expect_refusal() { # name body message
+  compile_chunk "$1" "$2"
+  set +e; out="$(timeout 20 "$HOST" --dsl "$WORK/$1.dslb" 2>&1)"; code=$?; set -e
+  [ "$code" = 3 ] && [[ "$out" == *"$3"* ]] || fail "$1 not refused cleanly (exit $code): $out"
+}
+expect_refusal frag-deep 'let deep = "<div>"; for (i in range(0, 17)) { deep = deep + deep; } html.parse("<p>x</p>").select("p").at(0).replace_with(deep);' 'nesting depth exceeds 512'
+expect_refusal frag-grow 'let d = html.parse("<p>x</p>"); let deep = "<div>"; for (i in range(0, 8)) { deep = deep + deep; } for (k in range(0, 4)) { let all = d.select("div"); let t = d.select("p"); if (all.len() > 0) { t = all; } t.at(t.len() - 1).replace_with(deep); }' 'nest deeper than 512'
+expect_refusal attr-inject 'html.parse("<p>x</p>").select("p").at(0).set_attr("x><script>alert(1)</script", "");' 'invalid attribute name'
+expect_refusal attr-space 'html.parse("<p>x</p>").select("p").at(0).set_attr("a b", "v");' 'invalid attribute name'
+expect_refusal splice-head 'html.parse("<p>x</p>").select("head").at(0).insert_after("<p>y</p>");' 'select a node inside'
+expect_refusal splice-html 'html.parse("<p>x</p>").select("html").at(0).replace_with("<p>y</p>");' 'select a node inside'
+ok "mutations: deep fragments, injecting attr names, head/body/html splices refused (exit 3)"
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"

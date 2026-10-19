@@ -9,6 +9,15 @@ Machine checked (2026-10-19), same box. Measured.
   via `lxb_html_document_parse_fragment` in the parent element's context.
   Gotcha: lexbor's `lxb_dom_node_insert_*` does NOT detach the node from its
   current parent — remove first or the splice loop never terminates.
+  Review guards: fragments go through the depth prescan and the spliced
+  tree must stay within 512 levels (a 131k-deep fragment crashed the
+  process; repeated nested replaces grew depth without bound); `set_attr`
+  refuses names with space, quotes, `<`, `>`, `/`, `=` or controls (they
+  serialized as markup); splicing next to `<html>`, `<head>` or `<body>` is
+  refused (an `<html>`-context fragment parses to a new head + body).
+  Removed / replaced nodes stay owned by the document (no use-after-free);
+  operations needing a parent on them fail cleanly; NodeLists are snapshots
+  and keep pointing at detached nodes after mutation.
 - `Html.save(doc, path)`: atomic (temp file + rename in the same directory),
   output root = the process working directory (canonicalized; anything
   outside refused with exit 3), parent directories created. Inputs are only
