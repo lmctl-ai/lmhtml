@@ -1,0 +1,17 @@
+p = _dsl_ schema="../schema/lmhtml.dsl.json";
+let raw = "<!DOCTYPE html>\n<html lang='en'><head><title>X</title></head><body><main title='a > b'>\n<h1>É &amp; X</h1><!-- <main>fake</main> --><pre>  x\n y</pre>\n</main></body></html>\n";
+let page = html.parse(raw);
+let content = "\n<h1>É &amp; X</h1><!-- <main>fake</main> --><pre>  x\n y</pre>\n";
+if (page.source() != raw || page.source_inner("main") != content || page.source_outer("main") != "<main title='a > b'>" + content + "</main>") { report.add("fail", "source", 0, "source bytes changed"); }
+if (html.parse("<h1>Fragment</h1>").source_outer("body") != "") { report.add("fail", "source", 0, "implicit body claimed source"); }
+let script = html.parse("<script>const s = '<main>fake</main>';</script><main>real</main>");
+if (script.source_inner("main") != "real") { report.add("fail", "source", 0, "raw script confused token ranges"); }
+if (str_replace("a{{x}}b{{x}}", "{{x}}", "&") != "a&b&" || str_find("abc", "b") != 1 || str_trim(" \ttext\n") != "text") { report.add("fail", "catalog", 0, "catalog string functions"); }
+if (str_text_prefix("é界🙂x", 3) != "é界🙂" || str_text_prefix("abc", -1) != "") { report.add("fail", "prefix", 0, "UTF-8 split"); }
+if (html.parse("<nav>one</nav><nav>two</nav>").source_elements("nav").len() != 2) { report.add("fail", "ranges", 0, "multiple explicit ranges"); }
+html.save(raw, ${ARGV[1]});
+if (html.load(${ARGV[1]}).source() != raw) { report.add("fail", "save", 0, "raw save changed bytes"); }
+report.write_text(${ARGV[2]});
+report.fail_if_any();
+end _dsl_
+savedsl(p, ARGV[0]);

@@ -17,7 +17,7 @@ Document::~Document() {
   if (tree) lxb_html_document_destroy(tree);
 }
 
-static bool valid_utf8(const std::string &s) {
+bool valid_utf8(const std::string &s) {
   for (size_t i = 0; i < s.size();) {
     unsigned char c = static_cast<unsigned char>(s[i]);
     size_t n = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 0;
@@ -43,6 +43,7 @@ struct MarkupAudit {
   void *ctx;
   std::vector<std::string> stack;
   bool first = true;
+  std::vector<size_t> source_stack;
   void token(lxb_html_token_t *t) {
     if (t->tag_id == LXB_TAG__EM_COMMENT) return;
     if (t->tag_id == LXB_TAG__TEXT) {
@@ -64,6 +65,29 @@ struct MarkupAudit {
         doc.markup_errors.push_back("duplicate attribute " + attr_name + " on <" + name + ">");
     }
     static const std::set<std::string> voids = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"};
+    // Token boundaries come from lexbor. The last attribute's end is past
+    // any quoted '>' bytes, so the next '>' terminates this already-tokenized tag.
+    const auto *base = reinterpret_cast<const lxb_char_t *>(doc.source.data());
+    size_t begin = static_cast<size_t>(t->begin - base);
+    size_t after = static_cast<size_t>(t->end - base);
+    for (auto *a = t->attr_first; a; a = a->next) {
+      if (a->name_end) after = std::max(after, static_cast<size_t>(a->name_end - base));
+      if (a->value_end) after = std::max(after, static_cast<size_t>(a->value_end - base));
+    }
+    size_t end = doc.source.find('>', after);
+    if (end != std::string::npos) {
+      ++end;
+      if (t->type & LXB_HTML_TOKEN_TYPE_CLOSE) {
+        while (!source_stack.empty()) {
+          auto &range = doc.source_ranges[source_stack.back()];
+          source_stack.pop_back();
+          if (range.tag == name) { range.inner_end = begin - 2; range.end = end; break; }
+        }
+      } else {
+        doc.source_ranges.push_back({name, begin - 1, end, end, voids.count(name) ? end : 0});
+        if (!voids.count(name)) source_stack.push_back(doc.source_ranges.size() - 1);
+      }
+    }
     if (t->type & LXB_HTML_TOKEN_TYPE_CLOSE) {
       if (stack.empty()) doc.markup_errors.push_back("unexpected </" + name + ">");
       else {
@@ -110,19 +134,33 @@ std::unique_ptr<Document> parse_html(const std::string &html, const std::string 
   doc->path = path;
   doc->utf8_source = valid_utf8(html);
   doc->source_bytes = html.size();
+  doc->source = html;
   lxb_status_t status = lxb_html_document_parse_chunk_begin(doc->tree);
   if (status != LXB_STATUS_OK) throw std::string("HTML parse initialization failed for ") + path;
   auto *parser = static_cast<lxb_html_parser_t *>(doc->tree->dom_document.parser);
   auto *tkz = lxb_html_parser_tokenizer(parser);
-  MarkupAudit audit{*doc, tkz->callback_token_done, tkz->callback_token_ctx, {}, true};
+  MarkupAudit audit{*doc, tkz->callback_token_done, tkz->callback_token_ctx, {}, true, {}};
   lxb_html_tokenizer_callback_token_done_set(tkz, audit_token, &audit);
-  status = lxb_html_document_parse_chunk(doc->tree, reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
+  status = lxb_html_document_parse_chunk(doc->tree, reinterpret_cast<const lxb_char_t *>(doc->source.data()), doc->source.size());
   if (status == LXB_STATUS_OK) status = lxb_html_document_parse_chunk_end(doc->tree);
   lxb_html_tokenizer_callback_token_done_set(tkz, audit.next, audit.ctx);
   for (const auto &tag : audit.stack) doc->markup_errors.push_back("unclosed <" + tag + ">");
   if (status != LXB_STATUS_OK) throw std::string("HTML parse failed for ") + path;
   check_depth_dom(*doc); // authoritative check on the real tree
   return doc;
+}
+
+std::string source_element(Document &doc, const std::string &tag, bool inner) {
+  const Document::SourceRange *found = nullptr;
+  for (const auto &range : doc.source_ranges) {
+    if (range.tag != tag) continue;
+    if (found) throw std::string("source element is ambiguous: ") + tag;
+    found = &range;
+  }
+  if (!found) return ""; // distinguishes an implicit html/head/body from source
+  if (!found->end) throw std::string("source element has no explicit end tag: ") + tag;
+  return inner ? doc.source.substr(found->inner_begin, found->inner_end - found->inner_begin)
+               : doc.source.substr(found->begin, found->end - found->begin);
 }
 
 // Cheap byte-level estimate before parsing: pathological nesting (hundreds of

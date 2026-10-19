@@ -4,6 +4,10 @@
   "types": {
     "Doc": {
       "methods": {
+        "source_elements": [{ "params": ["string"], "returns": "StrList" }],
+        "source": [{ "params": [], "returns": "string" }],
+        "source_inner": [{ "params": ["string"], "returns": "string" }],
+        "source_outer": [{ "params": ["string"], "returns": "string" }],
         "byte_size": [{ "params": [], "returns": "int" }],
         "doctype": [{ "params": [], "returns": "string" }],
         "markup_errors": [{ "params": [], "returns": "StrList" }],
@@ -63,7 +67,7 @@
         "load_dir": [{ "params": ["string"], "returns": "DocList" },
                      { "params": ["string", "string", "string"], "returns": "DocList" }],
         "parse": [{ "params": ["string"], "returns": "Doc" }],
-        "save": [{ "params": ["Doc", "string"], "returns": "void" }],
+        "save": [{ "params": ["Doc", "string"], "returns": "void" }, { "params": ["string", "string"], "returns": "void" }],
         "resolve": [{ "params": ["Doc", "string"], "returns": "string" }],
         "link_exists": [{ "params": ["Doc", "string"], "returns": "bool" }],
         "link_kind": [{ "params": ["Doc", "string"], "returns": "string" }],
@@ -81,6 +85,10 @@
     }
   },
   "functions": {
+    "str_text_prefix": [{ "params": ["string", "int"], "returns": "string" }],
+    "str_find": [{ "params": ["string", "string"], "returns": "int" }],
+    "str_replace": [{ "params": ["string", "string", "string"], "returns": "string" }],
+    "str_trim": [{ "params": ["string"], "returns": "string" }],
     "suggest": [{ "params": ["string", "StrList"], "returns": "StrList" }],
     "str_difference": [{ "params": ["StrList", "StrList"], "returns": "StrList" }],
     "str_union": [{ "params": ["StrList", "StrList"], "returns": "StrList" }],

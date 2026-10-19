@@ -131,3 +131,24 @@ a CSS path using element sibling positions. Paths reflect the current tree.
 After writing findings, call `Report.fail_if_any()` to return a nonzero host
 exit with `APP_FAIL`; an empty report succeeds. Reports otherwise remain
 informational, preserving existing analysis and rewrite scripts.
+
+### Preserving author source while replacing document shells
+
+`Doc.source()` returns the original bytes. `Doc.source_outer(tag)` and
+`Doc.source_inner(tag)` return the source of one explicit element or its content,
+using lexbor token ranges (not DOM serialization). `Doc.source_elements(tag)`
+returns all matching outer source slices in source order. Names are lowercase. Missing
+or implicit elements return an empty string; duplicate matches and unclosed
+non-void elements are errors. These are source snapshots: DOM edits do not change
+them. They preserve quotes, entities, comments, UTF-8 and preformatted whitespace.
+
+`Html.save(source_string, path)` writes those UTF-8 bytes verbatim, atomically,
+within the working directory, with the same path policy and dry-run reporting
+as `Html.save(doc, path)`. Equal files are not rewritten in apply mode. This lets
+scripts replace a generated shell while retaining authored HTML exactly.
+
+`str_find`, `str_replace` and `str_trim` come from the pinned cpp-dsl-sdk string
+catalog (`string-catalog.lock`, `cpp/stdlib/string.hpp`); they operate on bytes.
+`str_text_prefix(string, count)` returns at most count UTF-8 codepoints without
+splitting a character (negative counts yield empty; invalid UTF-8 is an error).
+The schema and `--schema` summary include these overloads and functions.

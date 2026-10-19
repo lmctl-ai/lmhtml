@@ -24,6 +24,8 @@ LMSCRIPT="$(scripts/select-compiler.sh)"
 COMPILER_SOURCE="$LMSCRIPT"
 scripts/sync-sdk.sh --verify >/dev/null || fail "SDK header pin mismatch"
 ok "SDK header matches sdk.lock"
+scripts/verify-string-catalog.sh || fail "string catalog pin"
+ok "string catalog matches string-catalog.lock"
 scripts/sync-lexbor.sh --verify >/dev/null || fail "lexbor pin mismatch"
 ok "third_party/lexbor matches lexbor.lock"
 
@@ -722,4 +724,9 @@ EOF
 if "$HOST" --dsl "$WORK/fail-report.dslb" >"$WORK/fail-report.json"; then fail "findings did not fail"; fi
 [[ "$(cat "$WORK/fail-report.json")" == *'"APP_FAIL"'* ]] || fail "missing APP_FAIL"
 ok "Report.fail_if_any fails with APP_FAIL"
+"$LMSCRIPT" tests/source.lms "$WORK/source.dslb" "build/source-roundtrip.html" "$WORK/source.txt" || fail "source compile"
+"$HOST" --dsl "$WORK/source.dslb" >/dev/null || { cat "$WORK/source.txt"; fail "source preservation"; }
+ok "lexbor source ranges, fragments, raw atomic save and catalog functions"
+expect_refusal source-ambiguous 'html.parse("<p>one</p><p>two</p>").source_inner("p");' 'ambiguous'
+expect_refusal source-unclosed 'html.parse("<main>unclosed").source_inner("main");' 'no explicit end tag'
 echo "PASS: $pass checks"

@@ -1,4 +1,5 @@
 #include <lexbor/dom/interfaces/document_type.h>
+#include "stdlib/string.hpp"
 #include "dslvm.hpp"
 #include "analyze.hpp"
 #include "html.hpp"
@@ -651,6 +652,25 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
   checked_method(r, "Doc", "path", {}, "string",
                  [](void *p, Args &) { return Value::string(self<lmhtml::Document>(p)->path); });
+  checked_method(r, "Doc", "source", {}, "string", [](void *p, Args &) {
+    return Value::string(doc_of(p, "Doc.source")->source);
+  });
+  checked_method(r, "Doc", "source_elements", {"string"}, "StrList", [&h](void *p, Args &a) {
+    auto *doc = doc_of(p, "Doc.source_elements");
+    std::vector<std::string> elements;
+    for (const auto &range : doc->source_ranges) {
+      if (range.tag != a[0].s) continue;
+      if (!range.end) throw dslvm::Error("source element has no explicit end tag: " + a[0].s);
+      elements.push_back(doc->source.substr(range.begin, range.end - range.begin));
+    }
+    return h.hold(h.str_lists, "StrList", std::move(elements));
+  });
+  checked_method(r, "Doc", "source_inner", {"string"}, "string", [](void *p, Args &a) {
+    return wrap_lex("Doc.source_inner", [&] { return Value::string(lmhtml::source_element(*doc_of(p, "Doc.source_inner"), a[0].s, true)); });
+  });
+  checked_method(r, "Doc", "source_outer", {"string"}, "string", [](void *p, Args &a) {
+    return wrap_lex("Doc.source_outer", [&] { return Value::string(lmhtml::source_element(*doc_of(p, "Doc.source_outer"), a[0].s, false)); });
+  });
   checked_method(r, "Doc", "byte_size", {}, "int", [](void *p, Args &) {
     return Value::integer(doc_of(p, "Doc.byte_size")->source_bytes);
   });
@@ -877,12 +897,7 @@ void register_host(dslvm::Registry &r, Host &h) {
     }
     return Value::object("Doc", h.docs.back().get());
   });
-  checked_method(r, "Html", "save", {"Doc", "string"}, "void", [&h](void *, Args &a) {
-    auto *doc = doc_of(a[0].obj, "Html.save");
-    if (!doc->utf8_source)
-      throw dslvm::Error("Html.save: " + (doc->path.empty() ? std::string("document") : doc->path) +
-                         " is not valid UTF-8 (legacy encoding?); saving would mix encodings");
-    const std::string &path = a[1].s;
+  auto save_source = [&h](const std::string &content, const std::string &path) {
     // Output root is the process cwd; saves must stay inside it. Inputs are
     // only modified when the script explicitly saves back to the same path.
     if (path.empty() || path.back() == '/')
@@ -908,12 +923,8 @@ void register_host(dslvm::Registry &r, Host &h) {
     if (ec || target.size() <= root.size() || target.compare(0, root.size(), root) != 0 ||
         target[root.size()] != '/')
       throw dslvm::Error("Html.save: path is outside the output root (working directory): " + path);
-    std::string content;
-    try {
-      content = lmhtml::document_html(*doc);
-    } catch (const std::string &e) {
-      throw dslvm::Error("Html.save: " + e);
-    }
+    std::error_code exists_ec;
+    if (!h.dry_run && std::filesystem::is_regular_file(target, exists_ec) && read_file(target) == content) return Value::none();
     if (h.dry_run) {
       std::string state = "new";
       std::error_code ec2;
@@ -931,7 +942,17 @@ void register_host(dslvm::Registry &r, Host &h) {
     }
     write_inside_root(root, target, content, path);
     return Value::none();
+  };
+  checked_method(r, "Html", "save", {"Doc", "string"}, "void", [save_source](void *, Args &a) {
+    auto *doc = doc_of(a[0].obj, "Html.save");
+    if (!doc->utf8_source) throw dslvm::Error("Html.save: source is not valid UTF-8");
+    return wrap_lex("Html.save", [&] { return save_source(lmhtml::document_html(*doc), a[1].s); });
   });
+  checked_method(r, "Html", "save", {"string", "string"}, "void", [save_source](void *, Args &a) {
+    if (!lmhtml::valid_utf8(a[0].s)) throw dslvm::Error("Html.save: source is not valid UTF-8");
+    return save_source(a[0].s, a[1].s);
+  });
+
   checked_method(r, "Html", "resolve", {"Doc", "string"}, "string", [&h](void *, Args &a) {
     const std::string &url = a[1].s;
     LinkTarget t = resolve_link(h, doc_of(a[0].obj, "Html.resolve"), url);
@@ -1002,6 +1023,30 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
   checked_function(r, "str_list", {}, "StrList",
                    [&h](Args &) { return h.hold(h.str_lists, "StrList", std::vector<std::string>{}); });
+  // Catalog operations are byte-oriented; excerpts need whole UTF-8 codepoints.
+  checked_function(r, "str_text_prefix", {"string", "int"}, "string", [](Args &a) {
+    const auto &text = a[0].s;
+    if (!lmhtml::valid_utf8(text)) throw dslvm::Error("str_text_prefix: input is not valid UTF-8");
+    size_t end = 0;
+    int64_t count = 0;
+    while (end < text.size() && count < a[1].i) {
+      unsigned char c = static_cast<unsigned char>(text[end]);
+      size_t n = c < 0x80 ? 1 : c < 0xE0 ? 2 : c < 0xF0 ? 3 : 4;
+      if (n > text.size() - end) break;
+      end += n;
+      ++count;
+    }
+    return Value::string(text.substr(0, end));
+  });
+  checked_function(r, "str_find", {"string", "string"}, "int", [](Args &a) {
+    return Value::integer(dslvm::stdlib::str_find(a[0].s, a[1].s));
+  });
+  checked_function(r, "str_replace", {"string", "string", "string"}, "string", [](Args &a) {
+    return Value::string(dslvm::stdlib::str_replace(a[0].s, a[1].s, a[2].s));
+  });
+  checked_function(r, "str_trim", {"string"}, "string", [](Args &a) {
+    return Value::string(dslvm::stdlib::str_trim(a[0].s));
+  });
   checked_function(r, "str_starts_with", {"string", "string"}, "bool",
                    [](Args &a) { return Value::boolean(lmhtml::strlib::starts_with(a[0].s, a[1].s)); });
   checked_function(r, "str_ends_with", {"string", "string"}, "bool",

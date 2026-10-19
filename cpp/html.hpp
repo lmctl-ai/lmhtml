@@ -18,6 +18,9 @@ struct Document {
   // raw while entities serialize as UTF-8, so saving would mix encodings.
   bool utf8_source = true;
   size_t source_bytes = 0;
+  std::string source;
+  struct SourceRange { std::string tag; size_t begin, inner_begin, inner_end, end; };
+  std::vector<SourceRange> source_ranges;
   bool leading_doctype = false;
   std::vector<std::string> markup_errors; // explicit-tag audit, before HTML repair
 
@@ -31,6 +34,7 @@ struct Document {
 // elements (pathological nesting stalls the HTML parser for tens of seconds).
 constexpr size_t MAX_NESTING = 512;
 
+bool valid_utf8(const std::string &s);
 std::unique_ptr<Document> parse_html(const std::string &html, const std::string &path);
 void check_depth_prescan(const std::string &html, const std::string &path);
 void check_depth_dom(Document &doc);
@@ -64,6 +68,7 @@ lxb_dom_node_t *replace_with_html(lxb_dom_node_t *node, const std::string &html)
 lxb_dom_node_t *insert_html(lxb_dom_node_t *node, const std::string &html, bool before);
 // Full document serialization (doctype included when present).
 std::string document_html(Document &doc);
+std::string source_element(Document &doc, const std::string &tag, bool inner);
 std::string url_scheme(const std::string &url); // "" for relative references
 std::string resolve_relative(const std::string &base_file, const std::string &ref);
 
