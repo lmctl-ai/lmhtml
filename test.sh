@@ -283,7 +283,9 @@ open(w+'/wide-a.html','w').write('<ul>'+''.join('<li>a%d</li>'%i for i in range(
 open(w+'/wide-b.html','w').write('<ul>'+''.join('<li>b%d</li>'%i for i in range(20000))+'</ul>')
 PY
 compile_chunk diff-wide 'report.add("n", "", html.diff(html.load("'"$WORK"'/wide-a.html"), html.load("'"$WORK"'/wide-b.html")), ""); report.write_text("'"$WORK"'/wide.txt");'
-( ulimit -v 1000000; timeout 60 "$HOST" --dsl "$WORK/diff-wide.dslb" >/dev/null ) || fail "20k x 20k sibling diff exceeded 1 GB / 60 s"
+# ASan reserves terabytes of address space: the memory bound is release-only.
+VMEM_LIMIT=1000000; [ "$SANITIZING" = 1 ] && VMEM_LIMIT=unlimited
+( ulimit -v "$VMEM_LIMIT"; timeout 60 "$HOST" --dsl "$WORK/diff-wide.dslb" >/dev/null ) || fail "20k x 20k sibling diff exceeded 1 GB / 60 s"
 [ "$(tail -1 "$WORK/wide.txt")" = "n :20000: " ] || fail "wide diff count: $(tail -1 "$WORK/wide.txt")"
 ok "diff of 20k x 20k distinct siblings stays bounded (LCS cell cap)"
 
