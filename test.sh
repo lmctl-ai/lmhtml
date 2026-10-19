@@ -29,8 +29,11 @@ nice -n 19 cmake --build "$BUILD_DIR" -j2 >"$WORK/build.log"
 ok "host build ($BUILD_DIR)"
 
 "$LMSCRIPT" examples/check-links.lms build/check-links.dslb >"$WORK/compile.log" || fail "check-links compile with $COMPILER_SOURCE"
-[ "$(od -An -t u1 -j 5 -N 1 build/check-links.dslb | tr -d ' ')" = 5 ] || fail "check-links was not compiled as bytecode v5"
-ok "check-links.lms compiles with $COMPILER_SOURCE as bytecode v5"
+"$LMSCRIPT" examples/class-typos.lms build/class-typos.dslb >>"$WORK/compile.log" || fail "class-typos compile with $COMPILER_SOURCE"
+for f in check-links class-typos; do
+  [ "$(od -An -t u1 -j 5 -N 1 "build/$f.dslb" | tr -d ' ')" = 5 ] || fail "$f was not compiled as bytecode v5"
+done
+ok "examples compile with $COMPILER_SOURCE as bytecode v5"
 
 "$HOST" --schema --json >"$WORK/embedded-schema.json" || fail "embedded schema print"
 cmp schema/lmhtml.dsl.json "$WORK/embedded-schema.json" || fail "embedded schema differs from source bytes"
@@ -75,6 +78,22 @@ assert all(f['kind']=='broken-link' and f['line']==0 for f in data['findings'])
 print('JSON report: 4 findings, ordered, well-formed')
 PY
 ok "JSON report matches expected findings"
+
+"$HOST" --dsl build/class-typos.dslb >"$WORK/typos.jsonl" || fail "class-typos run"
+cat > "$WORK/expected-typos.txt" <<'EOF'
+id-unused tests/fixtures/site/about.html:0: teem (did you mean team?)
+class-undefined tests/fixtures/site/index.html:0: usde (did you mean used?)
+class-unused tests/fixtures/site/index.html:0: footr
+EOF
+cmp "$WORK/expected-typos.txt" build/classes.txt || fail "class/id typo report differs from expected findings"
+python3 - <<'PY'
+import json
+data=json.load(open('build/classes.json'))
+kinds=[f['kind'] for f in data['findings']]
+assert kinds==['id-unused','class-undefined','class-unused'], kinds
+print('typo JSON report: 3 findings, well-formed')
+PY
+ok "class/id typo findings match expected exactly (text and JSON)"
 
 cp build/links.txt "$WORK/links-first.txt"
 "$HOST" --dsl build/check-links.dslb >/dev/null || fail "deterministic rerun"
@@ -200,6 +219,19 @@ compile_chunk not-implemented 'let d = html.parse("<p>x</p>"); html.diff(d, d);'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"
 ok "later-milestone members refuse cleanly (exit 3)"
+
+compile_chunk strlib 'let s = "Hello World";
+if (!str_starts_with(s, "Hello")) { report.add("bug", "f", 0, "starts_with"); }
+if (!str_ends_with(s, "World")) { report.add("bug", "f", 0, "ends_with"); }
+if (!str_contains(s, "lo Wo")) { report.add("bug", "f", 0, "contains"); }
+if (str_lower(s) != "hello world") { report.add("bug", "f", 0, "lower"); }
+if (str_substr(s, 6, 3) != "Wor") { report.add("bug", "f", 0, "substr"); }
+if (str_substr(s, -5, 100) != s) { report.add("bug", "f", 0, "substr clamp"); }
+if (str_len(s) != 11) { report.add("bug", "f", 0, "len"); }
+report.add("strlib", "ok", 0, "checked"); report.write_text("'"$WORK"'/strlib.txt");'
+"$HOST" --dsl "$WORK/strlib.dslb" >/dev/null || fail "strlib chunk run"
+[ "$(cat "$WORK/strlib.txt")" = "strlib ok:0: checked" ] || fail "str_* helpers misbehave: $(cat "$WORK/strlib.txt")"
+ok "str_* helpers (starts/ends/contains/lower/substr/len) behave"
 
 set +e; out="$("$HOST" --dsl "$WORK/no-such.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'"phase": "load"'* ]] || fail "missing bytecode refusal (exit $code): $out"
