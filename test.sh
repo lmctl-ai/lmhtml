@@ -4,6 +4,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 BUILD_DIR="${BUILD_DIR:-build}"
 HOST="$BUILD_DIR/lmhtml"
+UNAME_S="$(uname -s)"
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) HOST="$HOST.exe";; esac
+# GNU timeout is `gtimeout` from coreutils on macOS.
+TIMEOUT_CMD=timeout
+command -v timeout >/dev/null 2>&1 || TIMEOUT_CMD=gtimeout
+stat_size(){ stat -c %s "$1" 2>/dev/null || stat -f%z "$1"; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/lmhtml-test-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 pass=0
@@ -183,7 +189,7 @@ compile_chunk load-dir-as-file 'html.load("tests/fixtures/site");'
 set +e; out="$("$HOST" --dsl "$WORK/load-dir-as-file.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'cannot read'* ]] || fail "directory loaded as a page (exit $code): $out"
 compile_chunk load-device 'html.load("/dev/zero");'
-set +e; out="$(timeout 10 "$HOST" --dsl "$WORK/load-device.dslb" 2>&1)"; code=$?; set -e
+set +e; out="$("$TIMEOUT_CMD" 10 "$HOST" --dsl "$WORK/load-device.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'cannot read'* ]] || fail "device file not refused (exit $code): $out"
 ok "directories and device files refused by Html.load (exit 3)"
 
@@ -285,7 +291,7 @@ PY
 compile_chunk diff-wide 'report.add("n", "", html.diff(html.load("'"$WORK"'/wide-a.html"), html.load("'"$WORK"'/wide-b.html")), ""); report.write_text("'"$WORK"'/wide.txt");'
 # ASan reserves terabytes of address space: the memory bound is release-only.
 VMEM_LIMIT=1000000; [ "$SANITIZING" = 1 ] && VMEM_LIMIT=unlimited
-( ulimit -v "$VMEM_LIMIT"; timeout 60 "$HOST" --dsl "$WORK/diff-wide.dslb" >/dev/null ) || fail "20k x 20k sibling diff exceeded 1 GB / 60 s"
+( ulimit -v "$VMEM_LIMIT"; "$TIMEOUT_CMD" 60 "$HOST" --dsl "$WORK/diff-wide.dslb" >/dev/null ) || fail "20k x 20k sibling diff exceeded 1 GB / 60 s"
 [ "$(tail -1 "$WORK/wide.txt")" = "n :20000: " ] || fail "wide diff count: $(tail -1 "$WORK/wide.txt")"
 ok "diff of 20k x 20k distinct siblings stays bounded (LCS cell cap)"
 
@@ -401,7 +407,7 @@ compile_chunk flat-li 'html.load("'"$WORK"'/flat-li.html");'
 "$HOST" --dsl "$WORK/flat-li.dslb" >/dev/null || fail "600 unclosed <li>/<td>/<p> falsely refused as deep nesting"
 for name in quote comment lists tables; do
   compile_chunk "deep-$name" 'html.load("'"$WORK/deep-$name.html"'");'
-  set +e; out="$(timeout 10 "$HOST" --dsl "$WORK/deep-$name.dslb" 2>&1)"; code=$?; set -e
+  set +e; out="$("$TIMEOUT_CMD" 10 "$HOST" --dsl "$WORK/deep-$name.dslb" 2>&1)"; code=$?; set -e
   [ "$code" = 3 ] && [[ "$out" == *'nesting depth exceeds 512'* ]] || fail "depth prescan bypass via $name (exit $code): $out"
 done
 ok "depth prescan: unclosed siblings allowed; quote/comment/list/table bypasses refused fast"
@@ -493,7 +499,7 @@ ok "save: planted temp symlink harmless, mode kept, dir/slash refused, failed wr
 # names that serialize as markup, splices that would replace <head>/<body>.
 expect_refusal() { # name body message
   compile_chunk "$1" "$2"
-  set +e; out="$(timeout 20 "$HOST" --dsl "$WORK/$1.dslb" 2>&1)"; code=$?; set -e
+  set +e; out="$("$TIMEOUT_CMD" 20 "$HOST" --dsl "$WORK/$1.dslb" 2>&1)"; code=$?; set -e
   [ "$code" = 3 ] && [[ "$out" == *"$3"* ]] || fail "$1 not refused cleanly (exit $code): $out"
 }
 expect_refusal frag-deep 'let deep = "<div>"; for (i in range(0, 17)) { deep = deep + deep; } html.parse("<p>x</p>").select("p").at(0).replace_with(deep);' 'nesting depth exceeds 512'
@@ -523,7 +529,7 @@ report.add("glob", "", cases, ""); report.write_text("'"$WORK"'/glob.txt");'
 "$HOST" --dsl "$WORK/glob-table.dslb" >/dev/null || fail "glob table run"
 [ "$(cat "$WORK/glob.txt")" = "glob :8: " ] || fail "glob semantics: $(cat "$WORK/glob.txt")"
 compile_chunk glob-costly 'let t = "a"; for (i in range(0, 20)) { t = t + t; } let p = "a"; for (i in range(0, 15)) { p = p + p; } str_match(t, "*" + p + "b");'
-set +e; out="$(timeout 10 "$HOST" --dsl "$WORK/glob-costly.dslb" 2>&1)"; code=$?; set -e
+set +e; out="$("$TIMEOUT_CMD" 10 "$HOST" --dsl "$WORK/glob-costly.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'too costly'* ]] || fail "costly glob not bounded (exit $code): $out"
 ok "str_match: escapes, literal '[', empty cases; 1 MiB x 32 KiB worst case refused fast"
 
@@ -609,9 +615,22 @@ set +e; out="$("$HOST" --dsl "$WORK/hash-flip.dslb" 2>&1)"; code=$?; set -e
 ok "schema-hash mismatch refused (exit 3)"
 
 if [ "$SANITIZING" = 0 ]; then
-  LDD_OUT="$(ldd "$HOST" 2>&1 || true)"
-  [[ "$LDD_OUT" == *'not a dynamic executable'* ]] || fail "host is not fully static: $LDD_OUT"
-  ok "host is fully static ($(stat -c %s "$HOST") bytes, ldd clean)"
+  case "$UNAME_S" in
+    Darwin)
+      # macOS cannot link fully static: only system libraries may remain.
+      BAD_LIBS="$(otool -L "$HOST" | tail -n +2 | awk '{print $1}' | grep -v '^/usr/lib/\|^/System/Library/' || true)"
+      [ -z "$BAD_LIBS" ] || fail "host links non-system libraries: $BAD_LIBS"
+      ok "host links only system libraries ($(stat_size "$HOST") bytes, otool -L clean)"
+      ;;
+    MINGW*|MSYS*|CYGWIN*)
+      ok "host built ($(stat_size "$HOST") bytes; static assertion skipped on windows)"
+      ;;
+    *)
+      LDD_OUT="$(ldd "$HOST" 2>&1 || true)"
+      [[ "$LDD_OUT" == *'not a dynamic executable'* ]] || fail "host is not fully static: $LDD_OUT"
+      ok "host is fully static ($(stat_size "$HOST") bytes, ldd clean)"
+      ;;
+  esac
 fi
 
 echo "PASS: $pass checks"
