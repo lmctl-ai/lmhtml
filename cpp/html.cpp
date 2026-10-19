@@ -194,6 +194,7 @@ void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std
                                          reinterpret_cast<const lxb_char_t *>(css.data()),
                                          css.size()) != LXB_STATUS_OK) {
       if (sst) lxb_css_stylesheet_destroy(sst, true);
+      lxb_css_parser_selectors_destroy(parser);
       lxb_css_parser_destroy(parser, true);
       throw std::string("out of memory parsing inline stylesheet");
     }
@@ -205,6 +206,7 @@ void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std
     }
     lxb_css_stylesheet_destroy(sst, true);
   }
+  lxb_css_parser_selectors_destroy(parser);
   lxb_css_parser_destroy(parser, true);
   classes.assign(class_set.begin(), class_set.end());
   ids.assign(id_set.begin(), id_set.end());
