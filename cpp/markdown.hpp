@@ -12,7 +12,7 @@ inline std::string escape(const std::string &s) {
   std::string out;
   for(char c:s) {
     if(c=='\r'||c=='\n'||c=='\t'||c==' ') { if(out.empty()||out.back()!=' ') out+=' '; }
-    else { if(std::string("\\`*_[]<>#!|~").find(c)!=std::string::npos) out+='\\'; out+=c; }
+    else { if(std::string("\\`*_[]<>#!|~-.+)").find(c)!=std::string::npos) out+='\\'; out+=c; }
   }
   return out;
 }
