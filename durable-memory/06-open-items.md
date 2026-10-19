@@ -2,24 +2,18 @@
 
 ## DSL friction found while writing M1 scripts
 
-1. **No string predicates.** The link-check script cannot tell an anchor from
-   a page link, so every broken reference is reported with the same kind:
+1. **No string predicates.** **Resolved in M2** (host-side): ordinary schema
+   functions bound in `cpp/strlib.*` (kept separate so they can later move
+   into a cpp-dsl-sdk catalog; other hosts would then drop theirs):
+   `str_starts_with`, `str_ends_with`, `str_contains` (bool, string,string),
+   `str_lower` (ASCII), `str_substr(s, start, len)` (byte-based, clamped),
+   `str_len` (bytes).
 
-   ```
-   if (!html.link_exists(page, url)) {
-     report.add("broken-link", page.path(), 0, url + " not found");
-   }
-   ```
-
-   Nicer: `if (url.starts_with("#")) { report.add("broken-anchor", ...) }`.
-   A minimal `string` predicate set (starts_with / ends_with / contains) —
-   or host functions like `html.link_kind(url)` — would fix classification.
-   This is the top ask so far.
-
-2. **Intersecting two host collections is O(n²) from script.** For M2 class
-   typos the script must loop `classes_used()` × `css_classes()` by hand
-   (no lists/maps, R31). Works at page scale, but a host-side
-   `difference(a, b)` / membership test would express the policy directly.
+2. **Intersecting two host collections is O(n²) from script.** **Resolved in
+   M2**: `str_difference(a, b) -> StrList` is a host-side hash set
+   (order-preserving, deduped); `suggest(name, candidates)` does
+   Damerau-Levenshtein (OSA) host-side, threshold max(1, len/4), sorted by
+   distance. Scripts express set policy in one call.
 
 3. **`report.add(kind, file, line, message)` positional params.** Four
    same-ish strings in a row invite swaps; named/keyword arguments or a
@@ -50,3 +44,11 @@
    determinism. No ignore rules (e.g. skip `node_modules`-style dirs) yet.
 9. lmcad's `tests/*.py` refusal suites are a good model; lmhtml currently
    keeps refusals inline in test.sh — split out when the list grows.
+10. `css_classes`/`css_ids` harvest **top-level style rules of inline
+    `<style>` only**: rules nested in `@media` blocks are skipped, external
+    stylesheets are not read. Both need a decision (walk at-rule children;
+    load linked CSS relative to the page).
+11. lexbor cleanup gotchas found by ASan: `lxb_css_selector_list_destroy_memory`
+    after each selector-list use (M1), and `lxb_css_parser_selectors_destroy`
+    before `lxb_css_parser_destroy` when `lxb_css_parser_selectors_init` was
+    called (M2). Any new CSS entry point must pair these.
