@@ -13,8 +13,9 @@ stat_size(){ stat -c %s "$1" 2>/dev/null || stat -f%z "$1"; }
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/lmhtml-test-XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 # Native Windows binaries cannot address git-bash /tmp paths; MSYS bash
-# handles drive-letter paths fine both ways.
-case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) WORK="$(cygpath -m "$WORK")";; esac
+# handles drive-letter paths fine both ways. pwd -W also resolves 8.3 short
+# names, which lexical prefix checks in the host depend on.
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) WORK="$(cd "$WORK" && pwd -W | tr '\\' '/')";; esac
 pass=0
 ok(){ pass=$((pass+1)); echo "ok $pass - $1"; }
 fail(){ echo "FAIL: $*" >&2; exit 1; }
@@ -155,7 +156,7 @@ ok "link check rerun is byte-identical (deterministic)"
 ok "multiple bytecode files run sequentially against one embedded schema"
 
 SCHEMA_PATH="$HERE/schema/lmhtml.dsl.json"
-case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) SCHEMA_PATH="$(cygpath -m "$SCHEMA_PATH")";; esac
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) SCHEMA_PATH="$(cd "$HERE" && pwd -W | tr '\\' '/')/schema/lmhtml.dsl.json";; esac
 compile_chunk() { # name body
   cat > "$WORK/$1.lms" <<EOF2
 p = _dsl_ schema="$SCHEMA_PATH";
@@ -599,7 +600,7 @@ n = n + html.load_dir("'"$G"'", "'"$G"'/blog/*", "blog/2024/*").len() * 10;
 n = n + html.load_dir("'"$G"'", "**/index.html", "").len() * 100;
 n = n + html.load_dir("'"$G"'", "blog/**/post.html", "").len() * 1000;
 report.add("globs", "", n, ""); report.write_text("'"$WORK"'/globs.txt");'
-"$HOST" --dsl "$WORK/load-dir-globs.dslb" >/dev/null || fail "load_dir globs run"
+"$HOST" --dsl "$WORK/load-dir-globs.dslb" >"$WORK/load-dir-globs.out" 2>&1 || { cat "$WORK/load-dir-globs.out" >&2; fail "load_dir globs run"; }
 [ "$(cat "$WORK/globs.txt")" = "globs :1112: " ] || fail "load_dir glob semantics: $(cat "$WORK/globs.txt")"
 expect_refusal load-dir-escape 'html.load_dir("'"$G"'", "../*", "");' 'pattern leaves'
 expect_refusal load-dir-abs 'html.load_dir("'"$G"'", "/etc/*", "");' 'pattern is outside'

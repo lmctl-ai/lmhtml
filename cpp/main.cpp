@@ -485,9 +485,14 @@ void write_inside_root(const std::string &root, const std::string &target,
 std::string dir_pattern(const std::string &dir, const std::string &pattern, const char *which) {
   std::string pat = pattern;
   while (pat.rfind("./", 0) == 0) pat.erase(0, 2);
-  if (!pat.empty() && pat[0] == '/') {
+  // absolute: POSIX /x or Windows drive-letter C:/x
+  bool absoluteish = !pat.empty() && pat[0] == '/';
+  if (pat.size() > 2 && std::isalpha(static_cast<unsigned char>(pat[0])) && pat[1] == ':' &&
+      pat[2] == '/')
+    absoluteish = true;
+  if (absoluteish) {
     std::error_code ec;
-    std::string base = std::filesystem::absolute(dir, ec).lexically_normal().string();
+    std::string base = std::filesystem::absolute(dir, ec).lexically_normal().generic_string();
     if (!base.empty() && base.back() != '/') base += '/';
     if (ec || pat.rfind(base, 0) != 0)
       throw dslvm::Error(std::string("Html.load_dir: ") + which + " pattern is outside " + dir +
