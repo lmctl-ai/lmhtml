@@ -105,3 +105,10 @@ rather than writing mixed Latin-1/UTF-8 bytes.
 ./test.sh                            # release build + full pipeline
 BUILD_DIR=build-sanitize ./test.sh   # ASan/UBSan variant
 ```
+
+## License
+
+lmhtml's own code (including the vendored `cpp/dslvm.hpp` runtime) is MIT —
+see `LICENSE`. Third-party components and their licenses are listed in
+`THIRD_PARTY_NOTICES` (lexbor is Apache-2.0; runtime-library notes for the
+static binaries are there too).
