@@ -74,10 +74,16 @@ All work is an lmscript `_dsl_` chunk compiled against `schema/lmhtml.dsl.json`
    script explicitly saves to the same path. Re-diff with `html.diff` to
    verify convergence; re-runs are idempotent. Use `--dry-run` first.
 
-Serialization is mostly faithful (doctype kept) but lossy in: original
-indentation between elements is preserved as text nodes, however attribute
-quote style, entity spelling, and doctype letter-case are normalized; input
-in non-UTF-8 encodings is re-encoded to UTF-8.
+Serialization is mostly faithful but normalizes (verified): doctype becomes
+`<!DOCTYPE html>` and whitespace before `<html>` is dropped; missing
+`<html>`/`<head>`/`<body>` wrappers and optional tags are added (`<tbody>`,
+`</td>`, `</p>`, ...); tag names are lowercased; attribute values are always
+double-quoted with `&`, `"`, `<`, `>` and U+00A0 escaped, and boolean
+attributes gain `=""` (`hidden` → `hidden=""`); `<br/>` becomes `<br>`;
+character references are decoded (`&copy;` is written as UTF-8 `©`).
+Indentation between elements is kept as text. lexbor does not decode legacy
+encodings, so `Html.save` refuses a page whose source is not valid UTF-8
+rather than writing mixed Latin-1/UTF-8 bytes.
 
 ## Test
 

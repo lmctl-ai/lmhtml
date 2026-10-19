@@ -13,6 +13,9 @@ namespace lmhtml {
 struct Document {
   lxb_html_document_t *tree = nullptr;
   std::string path; // file it was loaded from; "" when parsed from a string
+  // lexbor does not decode legacy encodings: non-UTF-8 bytes pass through
+  // raw while entities serialize as UTF-8, so saving would mix encodings.
+  bool utf8_source = true;
   Document() = default;
   Document(const Document &) = delete;
   Document &operator=(const Document &) = delete;

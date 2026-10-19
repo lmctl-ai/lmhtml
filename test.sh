@@ -415,6 +415,11 @@ expect_refusal splice-head 'html.parse("<p>x</p>").select("head").at(0).insert_a
 expect_refusal splice-html 'html.parse("<p>x</p>").select("html").at(0).replace_with("<p>y</p>");' 'select a node inside'
 ok "mutations: deep fragments, injecting attr names, head/body/html splices refused (exit 3)"
 
+printf '<!doctype html><html><head><meta charset="iso-8859-1"></head><body><p>caf\xe9 &copy;</p></body></html>' > "$WORK/latin1.html"
+expect_refusal save-latin1 'html.save(html.load("'"$WORK"'/latin1.html"), "build/latin1-out.html");' 'not valid UTF-8'
+[ ! -e build/latin1-out.html ] || fail "non-UTF-8 page was saved with mixed encodings"
+ok "Html.save refuses non-UTF-8 sources instead of mixing encodings (exit 3)"
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"

@@ -635,6 +635,9 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
   checked_method(r, "Html", "save", {"Doc", "string"}, "void", [&h](void *, Args &a) {
     auto *doc = doc_of(a[0].obj, "Html.save");
+    if (!doc->utf8_source)
+      throw dslvm::Error("Html.save: " + (doc->path.empty() ? std::string("document") : doc->path) +
+                         " is not valid UTF-8 (legacy encoding?); saving would mix encodings");
     const std::string &path = a[1].s;
     // Output root is the process cwd; saves must stay inside it. Inputs are
     // only modified when the script explicitly saves back to the same path.

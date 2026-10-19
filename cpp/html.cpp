@@ -14,12 +14,31 @@ Document::~Document() {
   if (tree) lxb_html_document_destroy(tree);
 }
 
+static bool valid_utf8(const std::string &s) {
+  for (size_t i = 0; i < s.size();) {
+    unsigned char c = static_cast<unsigned char>(s[i]);
+    size_t n = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 0;
+    if (n == 0 || i + n > s.size()) return false;
+    uint32_t cp = n == 1 ? c : n == 2 ? c & 0x1F : n == 3 ? c & 0x0F : c & 0x07;
+    for (size_t k = 1; k < n; k++) {
+      unsigned char cc = static_cast<unsigned char>(s[i + k]);
+      if ((cc & 0xC0) != 0x80) return false;
+      cp = (cp << 6) | (cc & 0x3F);
+    }
+    static const uint32_t min_for_len[] = {0, 0, 0x80, 0x800, 0x10000};
+    if (cp < min_for_len[n] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return false;
+    i += n;
+  }
+  return true;
+}
+
 std::unique_ptr<Document> parse_html(const std::string &html, const std::string &path) {
   check_depth_prescan(html, path);
   auto doc = std::make_unique<Document>();
   doc->tree = lxb_html_document_create();
   if (!doc->tree) throw std::string("out of memory creating document");
   doc->path = path;
+  doc->utf8_source = valid_utf8(html);
   lxb_status_t status = lxb_html_document_parse(
       doc->tree, reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
   if (status != LXB_STATUS_OK) throw std::string("HTML parse failed for ") + path;

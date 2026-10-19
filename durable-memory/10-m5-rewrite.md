@@ -46,8 +46,13 @@ Machine checked (2026-10-19), same box. Measured.
 - Doctype re-emitted as `<!DOCTYPE html>` (case normalized, kept).
 - Attribute values always double-quoted; entities re-escaped minimally
   (`&`, `"`, `<`); original entity spelling lost.
-- Input encodings: lexbor parses to its internal UTF-8; output is UTF-8
-  regardless of the source encoding.
+- Input encodings: lexbor does **not** decode legacy encodings (no
+  `<meta charset>` handling here): Latin-1 bytes passed through raw while
+  `&copy;` serialized as UTF-8, giving mixed-encoding output. `Html.save`
+  now refuses documents whose source is not valid UTF-8.
+- Optional tags and wrappers are materialized (`<tbody>`, `</td>`,
+  `<html><head><body>`); boolean attributes gain `=""`; `>` is also
+  escaped in attribute values.
 - Inter-element whitespace survives as text nodes; nothing is pretty-printed
   or re-indented.
 
