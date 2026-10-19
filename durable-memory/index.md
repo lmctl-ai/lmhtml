@@ -17,3 +17,9 @@ scripted by lmscript `_dsl_` bytecode). Read in numeric order.
   template emission; v0 out-of-scope list.
 - `05-plan.md` — milestones M1–M5, fixture-based test strategy, foreseen
   DSL enhancements (listed, not implemented), risks.
+- `06-open-items.md` — DSL friction found writing M1 scripts (no string
+  predicates, O(n²) collection intersection, positional findings), plus
+  host-side open items.
+- `07-build-run-test.md` — measured M1 build/test numbers: 3,975,600-byte
+  fully static binary, 23-check test.sh (release + ASan/UBSan), bugs the
+  pipeline caught.
