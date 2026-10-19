@@ -33,3 +33,5 @@ scripted by lmscript `_dsl_` bytecode). Read in numeric order.
 - `11-dogfood.md` — real-site dogfood (mdbook/Jekyll/Sphinx mirrors):
   timings, RSS, finding classification, fixes (external CSS/@media, srcset,
   arena limit, str_union/str_list), enhancement list.
+- `12-ci.md` — GitHub Actions 5-platform matrix, compiler strategy (npm
+  @lmctl-ai/lmctl v5), 13 rounds of platform bugs, sizes, minutes.
