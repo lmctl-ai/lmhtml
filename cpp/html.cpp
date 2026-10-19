@@ -14,6 +14,7 @@ Document::~Document() {
 }
 
 std::unique_ptr<Document> parse_html(const std::string &html, const std::string &path) {
+  check_depth_prescan(html, path);
   auto doc = std::make_unique<Document>();
   doc->tree = lxb_html_document_create();
   if (!doc->tree) throw std::string("out of memory creating document");
@@ -21,7 +22,93 @@ std::unique_ptr<Document> parse_html(const std::string &html, const std::string 
   lxb_status_t status = lxb_html_document_parse(
       doc->tree, reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
   if (status != LXB_STATUS_OK) throw std::string("HTML parse failed for ") + path;
+  check_depth_dom(*doc); // authoritative check on the real tree
   return doc;
+}
+
+// Cheap byte-level estimate before parsing: pathological nesting (hundreds of
+// thousands of open tags) stalls the parser, so refuse early. Heuristic —
+// handles comments, doctype, quoted attributes, raw-text elements, void
+// elements and self-closing tags; the DOM check below is authoritative.
+void check_depth_prescan(const std::string &html, const std::string &path) {
+  static const std::set<std::string> void_tags = {
+      "area", "base", "br", "col", "embed", "hr", "img", "input",
+      "link", "meta", "param", "source", "track", "wbr"};
+  const size_t n = html.size();
+  size_t i = 0, depth = 0;
+  std::string where = path.empty() ? "<string>" : path;
+  while (i < n) {
+    if (html[i] != '<') { i++; continue; }
+    if (html.compare(i, 4, "<!--") == 0) {
+      size_t end = html.find("-->", i + 4);
+      i = end == std::string::npos ? n : end + 3;
+      continue;
+    }
+    if (i + 1 < n && (html[i + 1] == '!' || html[i + 1] == '?')) {
+      size_t end = html.find('>', i + 2);
+      i = end == std::string::npos ? n : end + 1;
+      continue;
+    }
+    bool closing = i + 1 < n && html[i + 1] == '/';
+    size_t j = i + 1 + (closing ? 1 : 0);
+    size_t name_start = j;
+    while (j < n && (std::isalnum(static_cast<unsigned char>(html[j])) || html[j] == '-')) j++;
+    std::string name = html.substr(name_start, j - name_start);
+    for (auto &c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    // scan to '>' honoring quoted attribute values
+    char quote = 0;
+    bool self_closing = false;
+    while (j < n) {
+      char c = html[j];
+      if (quote) { if (c == quote) quote = 0; }
+      else if (c == '"' || c == '\'') quote = c;
+      else if (c == '>') { break; }
+      else if (c == '/') { if (j + 1 < n && html[j + 1] == '>') self_closing = true; }
+      j++;
+    }
+    if (j >= n) break; // unterminated tag: stop estimating
+    j++;
+    if (name.empty()) { i = j; continue; }
+    if (name == "script" || name == "style") {
+      // raw text: skip to the matching close tag
+      std::string closer = "</" + name;
+      size_t end = html.size();
+      for (size_t p = j; (p = html.find(closer, p)) != std::string::npos; p += closer.size()) {
+        char next = p + closer.size() < html.size() ? html[p + closer.size()] : '>';
+        if (next == '>' || next == ' ' || next == '\t' || next == '/' || next == '\n') { end = p; break; }
+      }
+      // also try an uppercase close (HTML is case-insensitive here)
+      if (end == std::string::npos) {
+        std::string upper = closer;
+        for (auto &c : upper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        end = html.find(upper, j);
+      }
+      i = end == std::string::npos ? n : end;
+      continue;
+    }
+    if (closing) { if (depth) depth--; }
+    else if (!self_closing && !void_tags.count(name)) {
+      depth++;
+      if (depth > MAX_NESTING)
+        throw std::string("nesting depth exceeds " + std::to_string(MAX_NESTING) +
+                          " in " + where);
+    }
+    i = j;
+  }
+}
+
+void check_depth_dom(Document &doc) {
+  std::vector<std::pair<lxb_dom_node_t *, size_t>> stack;
+  stack.push_back({lxb_dom_interface_node(doc.tree), 0});
+  while (!stack.empty()) {
+    auto [node, depth] = stack.back();
+    stack.pop_back();
+    if (depth > MAX_NESTING)
+      throw std::string("nesting depth exceeds " + std::to_string(MAX_NESTING) + " in " +
+                        (doc.path.empty() ? "<string>" : doc.path));
+    for (lxb_dom_node_t *child = node->first_child; child; child = child->next)
+      stack.push_back({child, depth + 1});
+  }
 }
 
 static lxb_status_t collect_cb(lxb_dom_node_t *node, lxb_css_selector_specificity_t, void *ctx) {

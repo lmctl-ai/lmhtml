@@ -19,7 +19,13 @@ struct Document {
   ~Document();
 };
 
+// Host-side document limit: refuse pages nested deeper than this many
+// elements (pathological nesting stalls the HTML parser for tens of seconds).
+constexpr size_t MAX_NESTING = 512;
+
 std::unique_ptr<Document> parse_html(const std::string &html, const std::string &path);
+void check_depth_prescan(const std::string &html, const std::string &path);
+void check_depth_dom(Document &doc);
 std::vector<lxb_dom_node_t *> select(lxb_dom_node_t *scope, const std::string &css);
 std::string tag_name(lxb_dom_node_t *node);
 std::string attr(lxb_dom_node_t *node, const std::string &name); // "" when absent

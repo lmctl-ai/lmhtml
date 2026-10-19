@@ -5,6 +5,7 @@ cd "$HERE"
 BUILD_DIR="${BUILD_DIR:-build}"
 HOST="$BUILD_DIR/lmhtml"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/lmhtml-test-XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
 pass=0
 ok(){ pass=$((pass+1)); echo "ok $pass - $1"; }
 fail(){ echo "FAIL: $*" >&2; exit 1; }
@@ -232,6 +233,21 @@ report.add("strlib", "ok", 0, "checked"); report.write_text("'"$WORK"'/strlib.tx
 "$HOST" --dsl "$WORK/strlib.dslb" >/dev/null || fail "strlib chunk run"
 [ "$(cat "$WORK/strlib.txt")" = "strlib ok:0: checked" ] || fail "str_* helpers misbehave: $(cat "$WORK/strlib.txt")"
 ok "str_* helpers (starts/ends/contains/lower/substr/len) behave"
+
+python3 - "$WORK" <<'PY'
+import pathlib,sys
+w=pathlib.Path(sys.argv[1])
+(w/'deep.html').write_text('<html><body>' + '<div>'*600 + 'x' + '</div>'*600 + '</body></html>')
+(w/'deep-ok.html').write_text('<html><body>' + '<div>'*500 + 'x' + '</div>'*500 + '</body></html>')
+PY
+compile_chunk deep-load 'html.load("'"$WORK"'/deep.html");'
+set +e; out="$("$HOST" --dsl "$WORK/deep-load.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *"nesting depth exceeds 512 in $WORK/deep.html"* ]] || fail "depth refusal (exit $code): $out"
+ok "document nested deeper than 512 refused, naming the file (exit 3)"
+compile_chunk deep-ok 'let d = html.load("'"$WORK"'/deep-ok.html"); report.add("ok", d.path(), 0, str(d.select("div").len())); report.write_text("'"$WORK"'/deep-ok.txt");'
+"$HOST" --dsl "$WORK/deep-ok.dslb" >/dev/null || fail "500-deep document must parse"
+[ "$(cat "$WORK/deep-ok.txt")" = "ok $WORK/deep-ok.html:0: 500" ] || fail "500-deep document content wrong: $(cat "$WORK/deep-ok.txt")"
+ok "document at 500 nesting levels parses fine (limit is 512)"
 
 set +e; out="$("$HOST" --dsl "$WORK/no-such.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'"phase": "load"'* ]] || fail "missing bytecode refusal (exit $code): $out"
