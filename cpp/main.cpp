@@ -31,6 +31,7 @@ struct Host {
   std::vector<std::unique_ptr<std::vector<std::string>>> str_lists;
   std::vector<std::unique_ptr<std::vector<lmhtml::Document *>>> doc_lists;
   Report report;
+  bool dry_run = false; // --dry-run: Html.save reports would-save, writes nothing
   std::map<const lmhtml::Document *, std::string> dir_roots; // Html.load_dir pages
   std::string root_of(const lmhtml::Document *doc) const {
     auto it = dir_roots.find(doc);
@@ -299,10 +300,6 @@ bool link_exists(Host &h, lmhtml::Document *doc, const std::string &url) {
   return anchor_ok(*target);
 }
 
-Value not_yet(const char *name, const char *milestone) {
-  throw dslvm::Error(std::string(name) + " is not implemented yet (" + milestone + ")");
-}
-
 // Host callbacks must surface every failure as a DSL error: lexbor wrappers
 // throw std::string, std::filesystem and allocation failures throw
 // std::exception; anything escaping main would abort the process.
@@ -414,8 +411,15 @@ void register_host(dslvm::Registry &r, Host &h) {
   checked_method(r, "Node", "has_attr", {"string"}, "bool", [](void *p, Args &a) {
     return Value::boolean(lmhtml::has_attr(node_of(p, "Node.has_attr"), a[0].s));
   });
-  checked_method(r, "Node", "set_attr", {"string", "string"}, "Node",
-                 [](void *, Args &) { return not_yet("Node.set_attr", "milestone M5"); });
+  checked_method(r, "Node", "set_attr", {"string", "string"}, "Node", [](void *p, Args &a) {
+    auto *node = node_of(p, "Node.set_attr");
+    try {
+      lmhtml::set_attr(node, a[0].s, a[1].s);
+    } catch (const std::string &e) {
+      throw dslvm::Error("Node.set_attr: " + e);
+    }
+    return Value::object("Node", node);
+  });
   checked_method(r, "Node", "text", {}, "string", [](void *p, Args &) {
     return Value::string(lmhtml::text_content(node_of(p, "Node.text")));
   });
@@ -434,10 +438,38 @@ void register_host(dslvm::Registry &r, Host &h) {
       return h.hold(h.node_lists, "NodeList", lmhtml::select(node, a[0].s));
     });
   });
-  checked_method(r, "Node", "remove", {}, "void",
-                 [](void *, Args &) { return not_yet("Node.remove", "milestone M5"); });
-  checked_method(r, "Node", "replace_with", {"string"}, "Node",
-                 [](void *, Args &) { return not_yet("Node.replace_with", "milestone M5"); });
+  checked_method(r, "Node", "remove", {}, "void", [](void *p, Args &) {
+    try {
+      lmhtml::remove_node(node_of(p, "Node.remove"));
+    } catch (const std::string &e) {
+      throw dslvm::Error("Node.remove: " + e);
+    }
+    return Value::none();
+  });
+  checked_method(r, "Node", "replace_with", {"string"}, "Node", [](void *p, Args &a) {
+    try {
+      return Value::object("Node",
+                           lmhtml::replace_with_html(node_of(p, "Node.replace_with"), a[0].s));
+    } catch (const std::string &e) {
+      throw dslvm::Error("Node.replace_with: " + e);
+    }
+  });
+  checked_method(r, "Node", "insert_before", {"string"}, "Node", [](void *p, Args &a) {
+    try {
+      return Value::object("Node",
+                           lmhtml::insert_html(node_of(p, "Node.insert_before"), a[0].s, true));
+    } catch (const std::string &e) {
+      throw dslvm::Error("Node.insert_before: " + e);
+    }
+  });
+  checked_method(r, "Node", "insert_after", {"string"}, "Node", [](void *p, Args &a) {
+    try {
+      return Value::object("Node",
+                           lmhtml::insert_html(node_of(p, "Node.insert_after"), a[0].s, false));
+    } catch (const std::string &e) {
+      throw dslvm::Error("Node.insert_after: " + e);
+    }
+  });
   checked_method(r, "Node", "hash", {}, "int", [](void *p, Args &) {
     return Value::integer(static_cast<int64_t>(lmhtml::subtree_hash(node_of(p, "Node.hash"))));
   });
@@ -510,8 +542,55 @@ void register_host(dslvm::Registry &r, Host &h) {
     }
     return Value::object("Doc", h.docs.back().get());
   });
-  checked_method(r, "Html", "save", {"Doc", "string"}, "void",
-                 [](void *, Args &) { return not_yet("Html.save", "milestone M5"); });
+  checked_method(r, "Html", "save", {"Doc", "string"}, "void", [&h](void *, Args &a) {
+    auto *doc = doc_of(a[0].obj, "Html.save");
+    const std::string &path = a[1].s;
+    // Output root is the process cwd; saves must stay inside it. Inputs are
+    // only modified when the script explicitly saves back to the same path.
+    std::error_code ec;
+    std::string root = std::filesystem::weakly_canonical(std::filesystem::current_path(), ec).string();
+    std::string target =
+        std::filesystem::weakly_canonical(std::filesystem::absolute(path, ec), ec).string();
+    if (ec || target.size() <= root.size() || target.compare(0, root.size(), root) != 0 ||
+        target[root.size()] != '/')
+      throw dslvm::Error("Html.save: path is outside the output root (working directory): " + path);
+    std::string content;
+    try {
+      content = lmhtml::document_html(*doc);
+    } catch (const std::string &e) {
+      throw dslvm::Error("Html.save: " + e);
+    }
+    if (h.dry_run) {
+      std::string state = "new";
+      std::error_code ec2;
+      if (std::filesystem::exists(target, ec2)) {
+        try {
+          state = read_file(target) == content ? "unchanged" : "changed";
+        } catch (...) {
+          state = "changed";
+        }
+      }
+      h.report.findings.push_back(
+          {"would-save", path,
+           std::to_string(content.size()) + " bytes, " + state, 0});
+      return Value::none();
+    }
+    std::string tmp = target + ".tmp-lmhtml";
+    std::filesystem::create_directories(std::filesystem::path(target).parent_path(), ec);
+    {
+      std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+      if (!out) throw dslvm::Error("Html.save: cannot write " + path);
+      out << content;
+      out.flush();
+      if (!out) throw dslvm::Error("Html.save: failed writing " + path);
+    }
+    std::filesystem::rename(tmp, target, ec);
+    if (ec) {
+      std::filesystem::remove(tmp, ec);
+      throw dslvm::Error("Html.save: cannot rename into place: " + path);
+    }
+    return Value::none();
+  });
   checked_method(r, "Html", "resolve", {"Doc", "string"}, "string", [&h](void *, Args &a) {
     const std::string &url = a[1].s;
     LinkTarget t = resolve_link(h, doc_of(a[0].obj, "Html.resolve"), url);
@@ -615,7 +694,7 @@ int main(int argc, char **argv) {
   dslvm::Registry reg;
   register_host(reg, host);
   const std::string usage =
-      "usage: lmhtml --schema [--json] | --dsl-signatures | --dsl FILE [FILE ...]\n";
+      "usage: lmhtml --schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n";
   if (argc >= 2 && std::string(argv[1]) == "--schema") {
     if (argc == 2) {
       print_schema_summary(reg);
@@ -633,12 +712,17 @@ int main(int argc, char **argv) {
     for (const auto &signature : reg.signatures()) std::cout << signature << "\n";
     return 0;
   }
-  if (argc < 3 || std::string(argv[1]) != "--dsl") {
+  int files_at = 2;
+  if (argc >= 2 && std::string(argv[1]) == "--dry-run") {
+    host.dry_run = true;
+    files_at = 3;
+  }
+  if (argc <= files_at || std::string(argv[files_at - 1]) != "--dsl") {
     std::cerr << usage;
     return 2;
   }
   // Validate the complete invocation before any block can write output.
-  for (int i = 2; i < argc; i++) {
+  for (int i = files_at; i < argc; i++) {
     if (std::string(argv[i]).empty() || std::string(argv[i]).rfind("--", 0) == 0) {
       std::cerr << usage;
       return 2;
@@ -652,7 +736,7 @@ int main(int argc, char **argv) {
   // Load and verify every file first: a missing or corrupt later file must
   // not leave the earlier blocks' output half-written.
   std::vector<dslvm::Program> programs;
-  for (int i = 2; i < argc; i++) {
+  for (int i = files_at; i < argc; i++) {
     try {
       programs.push_back(dslvm::Program::load(dslvm::read_file(argv[i]), schema, reg));
     } catch (const dslvm::Error &error) {

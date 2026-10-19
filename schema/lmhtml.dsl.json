@@ -25,6 +25,8 @@
         "select": [{ "params": ["string"], "returns": "NodeList" }],
         "remove": [{ "params": [], "returns": "void" }],
         "replace_with": [{ "params": ["string"], "returns": "Node" }],
+        "insert_before": [{ "params": ["string"], "returns": "Node" }],
+        "insert_after": [{ "params": ["string"], "returns": "Node" }],
         "hash": [{ "params": [], "returns": "int" }]
       }
     },

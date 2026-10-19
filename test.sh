@@ -33,7 +33,8 @@ ok "host build ($BUILD_DIR)"
 "$LMSCRIPT" examples/class-typos.lms build/class-typos.dslb >>"$WORK/compile.log" || fail "class-typos compile with $COMPILER_SOURCE"
 "$LMSCRIPT" examples/diff-pages.lms build/diff-pages.dslb >>"$WORK/compile.log" || fail "diff-pages compile with $COMPILER_SOURCE"
 "$LMSCRIPT" examples/make-template.lms build/make-template.dslb >>"$WORK/compile.log" || fail "make-template compile with $COMPILER_SOURCE"
-for f in check-links class-typos diff-pages make-template; do
+"$LMSCRIPT" examples/rewrite-nav.lms build/rewrite-nav.dslb >>"$WORK/compile.log" || fail "rewrite-nav compile with $COMPILER_SOURCE"
+for f in check-links class-typos diff-pages make-template rewrite-nav; do
   [ "$(od -An -t u1 -j 5 -N 1 "build/$f.dslb" | tr -d ' ')" = 5 ] || fail "$f was not compiled as bytecode v5"
 done
 ok "examples compile with $COMPILER_SOURCE as bytecode v5"
@@ -300,11 +301,6 @@ set +e; out="$("$HOST" --dsl "$WORK/tpl-k-too-big.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'exceeds the 3 pages'* ]] && [ ! -e "$WORK/never.html" ] || fail "k > pages not refused (exit $code): $out"
 ok "template: doctype kept, varying text slotted (no page words leak), k > pages refused"
 
-compile_chunk not-implemented 'let d = html.parse("<p>x</p>"); d.select("p").at(0).remove();'
-set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
-[ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"
-ok "later-milestone members refuse cleanly (exit 3)"
-
 compile_chunk strlib 'let s = "Hello World";
 if (!str_starts_with(s, "Hello")) { report.add("bug", "f", 0, "starts_with"); }
 if (!str_ends_with(s, "World")) { report.add("bug", "f", 0, "ends_with"); }
@@ -354,6 +350,45 @@ compile_chunk tpl-bad-k 'let d = html.load_dir("tests/fixtures/tpl"); html.write
 set +e; out="$("$HOST" --dsl "$WORK/tpl-bad-k.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'k must be at least 1'* ]] || fail "write_template k=0 refusal (exit $code): $out"
 ok "write_template refuses k < 1 (exit 3)"
+
+"$HOST" --dsl build/rewrite-nav.dslb >"$WORK/rewrite.jsonl" || fail "rewrite-nav run"
+cat > "$WORK/expected-rewrite.txt" <<'EOF'
+diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
+diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > p:nth-child(2): text differs
+diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
+diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > p:nth-child(2): text differs
+converged p0-vs-p3:0: 2 differences after rewrite
+converged p0-vs-p4:0: 2 differences after rewrite
+EOF
+cmp "$WORK/expected-rewrite.txt" build/rewrite-report.txt || fail "rewrite report differs from expected"
+grep -q '^<!DOCTYPE html>' build/rewritten/p0.html || fail "saved page lost the doctype"
+ok "nav/footer rewritten across 5 pages, pages converge (M3 re-diff), doctype kept"
+
+cp -r build/rewritten "$WORK/rewritten-first"
+"$HOST" --dsl build/rewrite-nav.dslb >/dev/null || fail "rewrite-nav rerun"
+diff -r "$WORK/rewritten-first" build/rewritten || fail "rewrite rerun not idempotent"
+ok "rewrite re-run is byte-identical (idempotent)"
+
+compile_chunk save-escape 'let d = html.parse("<p>x</p>"); html.save(d, "'"$WORK"'/escape.html");'
+set +e; out="$("$HOST" --dsl "$WORK/save-escape.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'outside the output root'* ]] && [ ! -f "$WORK/escape.html" ] || fail "save escape refusal (exit $code): $out"
+ok "Html.save refuses paths outside the output root (exit 3, nothing written)"
+
+compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
+rm -f build/dry-run-out.html
+"$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"
+[ ! -f build/dry-run-out.html ] || fail "dry-run wrote a file"
+grep -qE '^would-save build/dry-run-out\.html:0: [0-9]+ bytes, new$' "$WORK/dry.txt" || fail "dry-run finding wrong: $(cat "$WORK/dry.txt")"
+"$HOST" --dsl "$WORK/dry-run.dslb" >/dev/null || fail "real save after dry-run"
+[ -f build/dry-run-out.html ] || fail "real save wrote nothing"
+"$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run rerun"
+grep -qE 'bytes, unchanged$' "$WORK/dry.txt" || fail "dry-run after save should report unchanged: $(cat "$WORK/dry.txt")"
+ok "dry-run reports would-save and writes nothing; unchanged after real save"
+
+compile_chunk empty-fragment 'let d = html.parse("<p>x</p>"); d.select("p").at(0).replace_with("");'
+set +e; out="$("$HOST" --dsl "$WORK/empty-fragment.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'produced no nodes'* ]] || fail "empty fragment refusal (exit $code): $out"
+ok "empty replacement fragment refused (exit 3)"
 
 set +e; out="$("$HOST" --dsl "$WORK/no-such.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'"phase": "load"'* ]] || fail "missing bytecode refusal (exit $code): $out"

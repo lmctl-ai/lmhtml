@@ -351,6 +351,62 @@ void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std
   ids.assign(id_set.begin(), id_set.end());
 }
 
+void set_attr(lxb_dom_node_t *node, const std::string &name, const std::string &value) {
+  lxb_dom_element_t *el = as_element(node);
+  if (!el) throw std::string("set_attr on a non-element node");
+  if (!lxb_dom_element_set_attribute(el, reinterpret_cast<const lxb_char_t *>(name.data()),
+                                     name.size(),
+                                     reinterpret_cast<const lxb_char_t *>(value.data()),
+                                     value.size()))
+    throw std::string("set_attr failed");
+}
+
+void remove_node(lxb_dom_node_t *node) {
+  if (!node->parent) throw std::string("cannot remove a node with no parent");
+  lxb_dom_node_remove(node);
+}
+
+static lxb_dom_node_t *splice_fragment(lxb_dom_node_t *node, const std::string &html,
+                                       bool before, bool replace) {
+  lxb_dom_node_t *parent = node->parent;
+  if (!parent) throw std::string("cannot splice at a node with no parent");
+  lxb_dom_element_t *context = parent->type == LXB_DOM_NODE_TYPE_ELEMENT
+                                   ? lxb_dom_interface_element(parent)
+                                   : lxb_dom_interface_element(lxb_html_document_body_element(
+                                         lxb_html_interface_document(node->owner_document)));
+  if (!context) throw std::string("cannot splice here: no element context");
+  lxb_dom_node_t *frag = lxb_html_document_parse_fragment(
+      lxb_html_interface_document(node->owner_document), context,
+      reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
+  if (!frag || !frag->first_child) throw std::string("HTML fragment produced no nodes");
+  lxb_dom_node_t *first = frag->first_child;
+  lxb_dom_node_t *anchor = node;
+  while (frag->first_child) {
+    lxb_dom_node_t *child = frag->first_child;
+    lxb_dom_node_remove(child); // lexbor's insert_* does not detach first
+    if (before) lxb_dom_node_insert_before(node, child);
+    else { lxb_dom_node_insert_after(anchor, child); anchor = child; }
+  }
+  if (replace) lxb_dom_node_remove(node);
+  return first;
+}
+
+lxb_dom_node_t *replace_with_html(lxb_dom_node_t *node, const std::string &html) {
+  return splice_fragment(node, html, true, true);
+}
+
+lxb_dom_node_t *insert_html(lxb_dom_node_t *node, const std::string &html, bool before) {
+  return splice_fragment(node, html, before, false);
+}
+
+std::string document_html(Document &doc) {
+  std::string out;
+  if (lxb_html_serialize_tree_cb(lxb_dom_interface_node(doc.tree), append_cb, &out) !=
+      LXB_STATUS_OK)
+    throw std::string("serialization failed");
+  return out;
+}
+
 std::string url_scheme(const std::string &url) {
   for (size_t i = 0; i < url.size(); i++) {
     char c = url[i];

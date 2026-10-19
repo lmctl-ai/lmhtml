@@ -40,6 +40,17 @@ std::vector<std::string> ids_used(Document &doc);      // sorted unique id value
 // .class and #id names defined by the document's inline <style> sheets.
 // v0: top-level style rules only (rules nested in @media are not harvested).
 void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std::string> &ids);
+
+// Mutations (M5). All throw std::string on misuse; inserted nodes are owned
+// by the document like any other node.
+void set_attr(lxb_dom_node_t *node, const std::string &name, const std::string &value);
+void remove_node(lxb_dom_node_t *node); // detach; memory stays with the document
+// Parse an HTML fragment in the context of node's parent and splice it in.
+// Return the first inserted node. Empty fragments are an error.
+lxb_dom_node_t *replace_with_html(lxb_dom_node_t *node, const std::string &html);
+lxb_dom_node_t *insert_html(lxb_dom_node_t *node, const std::string &html, bool before);
+// Full document serialization (doctype included when present).
+std::string document_html(Document &doc);
 std::string url_scheme(const std::string &url); // "" for relative references
 std::string resolve_relative(const std::string &base_file, const std::string &ref);
 
