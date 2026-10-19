@@ -68,9 +68,40 @@ std::string read_file(const std::string &path) {
   return data.str();
 }
 
+// Length of the valid UTF-8 sequence starting at s[i], or 0 when invalid
+// (overlong forms, surrogates and code points above U+10FFFF included).
+size_t utf8_sequence(const std::string &s, size_t i) {
+  auto byte = [&](size_t k) { return static_cast<unsigned char>(s[k]); };
+  unsigned char c = byte(i);
+  size_t n = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3 : (c & 0xF8) == 0xF0 ? 4 : 0;
+  if (n == 0 || i + n > s.size()) return 0;
+  uint32_t cp = n == 1 ? c : n == 2 ? c & 0x1F : n == 3 ? c & 0x0F : c & 0x07;
+  for (size_t k = 1; k < n; k++) {
+    if ((byte(i + k) & 0xC0) != 0x80) return 0;
+    cp = (cp << 6) | (byte(i + k) & 0x3F);
+  }
+  static const uint32_t min_for_len[] = {0, 0, 0x80, 0x800, 0x10000};
+  if (cp < min_for_len[n] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return 0;
+  return n;
+}
+
+// JSON string body. HTML input is arbitrary bytes (lexbor keeps them as-is),
+// so invalid UTF-8 becomes U+FFFD to keep the report valid JSON.
 std::string json_escape(const std::string &s) {
   std::string out;
-  for (unsigned char c : s) {
+  for (size_t i = 0; i < s.size();) {
+    unsigned char c = static_cast<unsigned char>(s[i]);
+    size_t n = utf8_sequence(s, i);
+    if (n == 0) {
+      out += "\\ufffd";
+      i++;
+      continue;
+    }
+    if (n > 1) {
+      out.append(s, i, n);
+      i += n;
+      continue;
+    }
     switch (c) {
     case '"': out += "\\\""; break;
     case '\\': out += "\\\\"; break;
@@ -78,13 +109,32 @@ std::string json_escape(const std::string &s) {
     case '\r': out += "\\r"; break;
     case '\t': out += "\\t"; break;
     default:
-      if (c < 0x20) {
+      if (c < 0x20 || c == 0x7f) {
         char buf[8];
         std::snprintf(buf, sizeof buf, "\\u%04x", c);
         out += buf;
       } else {
         out += static_cast<char>(c);
       }
+    }
+    i++;
+  }
+  return out;
+}
+
+// Text report fields: one finding per line, so control characters (a newline
+// inside a URL would forge a second finding) are shown escaped.
+std::string text_escape(const std::string &s) {
+  std::string out;
+  for (unsigned char c : s) {
+    if (c == '\n') out += "\\n";
+    else if (c == '\r') out += "\\r";
+    else if (c < 0x20 || c == 0x7f) {
+      char buf[8];
+      std::snprintf(buf, sizeof buf, "\\x%02x", c);
+      out += buf;
+    } else {
+      out += static_cast<char>(c);
     }
   }
   return out;
@@ -94,7 +144,8 @@ void write_report_text(const Report &report, const std::string &path) {
   std::ofstream out(path, std::ios::binary);
   if (!out) throw dslvm::Error("cannot write " + path);
   for (const auto &f : report.findings)
-    out << f.kind << " " << f.file << ":" << f.line << ": " << f.message << "\n";
+    out << text_escape(f.kind) << " " << text_escape(f.file) << ":" << f.line << ": "
+        << text_escape(f.message) << "\n";
   if (!out) throw dslvm::Error("failed writing " + path);
 }
 

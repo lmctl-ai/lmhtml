@@ -138,6 +138,24 @@ if [ "$(id -u)" != 0 ]; then
   ok "Html.load_dir on an unreadable subdirectory is a clean error (exit 3)"
 fi
 
+printf '<a href="a\xff\xfe\xc0\xafb\xed\xa0\x80\x01c\nd\x7f">x</a><a href="&quot;q&quot;\\ \xc3\xa9">y</a>' > "$WORK/bad-bytes.html"
+compile_chunk report-escape 'let d = html.load("'"$WORK"'/bad-bytes.html"); let l = d.links();
+for (i in range(0, l.len())) { report.add("k\"\n", l.at(i), 0, l.at(i)); }
+report.write_json("'"$WORK"'/escape.json"); report.write_text("'"$WORK"'/escape.txt");'
+"$HOST" --dsl "$WORK/report-escape.dslb" >/dev/null || fail "report escape run"
+python3 - "$WORK" <<'PY'
+import json,sys
+raw=open(sys.argv[1]+'/escape.json','rb').read()
+data=json.loads(raw.decode('utf-8'))  # strict: invalid UTF-8 raises
+f=data['findings']
+assert data['count']==2 and f[0]['kind']=='k"\n', f
+assert f[0]['file']=='a����b���\x01c\nd\x7f', repr(f[0]['file'])
+assert f[1]['file']=='"q"\\ é', repr(f[1]['file'])
+lines=open(sys.argv[1]+'/escape.txt','rb').read().split(b'\n')
+assert len(lines)==3 and lines[2]==b'', lines  # two findings, no forged lines
+PY
+ok "reports stay valid: invalid UTF-8 -> U+FFFD in JSON, control chars escaped in text"
+
 compile_chunk not-implemented 'html.parse("<p>x</p>").classes_used();'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"
