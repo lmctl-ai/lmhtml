@@ -36,13 +36,48 @@ CLI contract:
 - `lmhtml --schema` — compact human/LLM summary of contexts, functions, types
 - `lmhtml --schema --json` — the embedded schema bytes (compiler input)
 - `lmhtml --dsl-signatures` — canonical registry signatures (parity checks)
-- `lmhtml --dsl A.dslb [B.dslb ...]` — run bytecode files in order against the
-  one embedded schema; all arguments are validated before anything runs;
-  shared state across files; stops at the first failure
+- `lmhtml [--dry-run] --dsl A.dslb [B.dslb ...]` — run bytecode files in order
+  against the one embedded schema; all files are loaded and verified before
+  anything runs; shared state across files; stops at the first failure.
+  With `--dry-run`, `Html.save` reports a `would-save` finding
+  (`N bytes, new|changed|unchanged`) and writes nothing.
 
 Exit codes: 0 ok, 2 usage/compile, 3 host load/run error, 4 application
 failure. The default build links fully static (`-static`); disable with
 `-DLMHTML_FULL_STATIC=OFF`.
+
+## Usage guide (the five use cases)
+
+All work is an lmscript `_dsl_` chunk compiled against `schema/lmhtml.dsl.json`
+(see `examples/` for complete runnable scripts):
+
+1. **Broken links** — `examples/check-links.lms`: `html.load_dir(dir)` →
+   `Doc.links()` → `html.link_exists(page, url)` (relative links, `#anchors`,
+   `<base href>`, percent-encoding handled; external schemes are unchecked
+   and count as existing) → `report.add` + `report.write_text/json`.
+2. **CSS class/id typos** — `examples/class-typos.lms`: `Doc.classes_used()`
+   vs `Doc.css_classes()` (inline `<style>`), `Doc.ids()` vs `Doc.css_ids()`;
+   `str_difference(a, b)` is a host-side hash set; `suggest(name, candidates)`
+   gives edit-distance near misses.
+3. **Structural diff** — `examples/diff-pages.lms`: `html.diff(a, b)` ignores
+   whitespace/comment/attribute-order/`data-*` noise and emits
+   `diff-added/removed/changed` findings with CSS-ish paths; `Node.hash()` is
+   the normalized subtree fingerprint.
+4. **Common parts → template** — `examples/make-template.lms`:
+   `html.write_template(pages, k, out)` finds subtrees shared by ≥ k pages
+   and emits a sample-based template with `<!-- slot:TAG-N -->` markers;
+   `common-part` findings report page coverage.
+5. **Shared-part rewrite** — `examples/rewrite-nav.lms`: `select` +
+   `replace_with`/`set_attr`/`insert_before`/`insert_after`/`remove`, then
+   `html.save(page, path)`. Saves are atomic (temp + rename), confined to the
+   working directory (the output root), and never touch inputs unless the
+   script explicitly saves to the same path. Re-diff with `html.diff` to
+   verify convergence; re-runs are idempotent. Use `--dry-run` first.
+
+Serialization is mostly faithful (doctype kept) but lossy in: original
+indentation between elements is preserved as text nodes, however attribute
+quote style, entity spelling, and doctype letter-case are normalized; input
+in non-UTF-8 encodings is re-encoded to UTF-8.
 
 ## Test
 

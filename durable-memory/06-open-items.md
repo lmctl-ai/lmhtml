@@ -29,8 +29,9 @@
 
 ## Host / wiring open items
 
-6. `Html.save` + mutation methods are registered stubs until M5 — scripts
-   hitting them get exit 3 "not implemented yet (milestone M5)".
+6. ~~`Html.save` + mutation methods are registered stubs~~ **Done in M5**:
+   all schema members are implemented; the safety rules (atomic save, cwd
+   output root, `--dry-run`) are in 10-m5-rewrite.md.
 7. `link_exists` reuses pages already loaded (e.g. by `load_dir`) for
    cross-page anchors and parses other targets once per check (no cache).
    Link policy (shared by `Html.resolve`, see `resolve_link` in main.cpp):
