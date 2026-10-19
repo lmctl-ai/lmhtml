@@ -117,3 +117,17 @@ lmhtml's own code (including the vendored `cpp/dslvm.hpp` runtime) is MIT —
 see `LICENSE`. Third-party components and their licenses are listed in
 `THIRD_PARTY_NOTICES` (lexbor is Apache-2.0; runtime-library notes for the
 static binaries are there too).
+
+### Validation scripts
+
+`Doc.byte_size()` returns the original UTF-8 source size in bytes.
+`Doc.doctype()` returns the leading doctype name (empty when missing or preceded
+by content; comments and whitespace are ignored). `Doc.markup_errors()` returns
+an explicit-tag nesting audit from lexbor tokens **before** tree repair: unlike
+HTML itself, this audit requires closing tags even where HTML allows omission.
+These three values describe the loaded source, not subsequent DOM mutations.
+`Node.attributes()` lists attribute names in document order; `Node.path()` gives
+a CSS path using element sibling positions. Paths reflect the current tree.
+After writing findings, call `Report.fail_if_any()` to return a nonzero host
+exit with `APP_FAIL`; an empty report succeeds. Reports otherwise remain
+informational, preserving existing analysis and rewrite scripts.

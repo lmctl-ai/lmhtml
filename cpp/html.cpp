@@ -35,6 +35,73 @@ static bool valid_utf8(const std::string &s) {
   return true;
 }
 
+// Observe lexbor's tokens before tree repair. This optional strict audit requires
+// explicit closing tags, unlike HTML parsing (which permits omitted end tags).
+struct MarkupAudit {
+  Document &doc;
+  lxb_html_tokenizer_token_f next;
+  void *ctx;
+  std::vector<std::string> stack;
+  bool first = true;
+  void token(lxb_html_token_t *t) {
+    if (t->tag_id == LXB_TAG__EM_COMMENT) return;
+    if (t->tag_id == LXB_TAG__TEXT) {
+      bool whitespace = true;
+      for (auto p = t->text_start; p && p < t->text_end; ++p)
+        if (*p != ' ' && *p != '\t' && *p != '\r' && *p != '\n' && *p != '\f') whitespace = false;
+      if (whitespace) return;
+    }
+    if (first) { doc.leading_doctype = t->tag_id == LXB_TAG__EM_DOCTYPE; first = false; }
+    if (t->tag_id < LXB_TAG__BEGIN) return;
+    std::string name(reinterpret_cast<const char *>(t->begin), t->end - t->begin);
+    for (char &c : name) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+    std::set<std::string> attrs;
+    for (auto *a = t->attr_first; a; a = a->next) {
+      size_t size = 0;
+      auto *raw = lxb_html_token_attr_name(a, &size);
+      std::string attr_name(reinterpret_cast<const char *>(raw), size);
+      if (!attrs.insert(attr_name).second)
+        doc.markup_errors.push_back("duplicate attribute " + attr_name + " on <" + name + ">");
+    }
+    static const std::set<std::string> voids = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"};
+    if (t->type & LXB_HTML_TOKEN_TYPE_CLOSE) {
+      if (stack.empty()) doc.markup_errors.push_back("unexpected </" + name + ">");
+      else {
+        if (stack.back() != name) doc.markup_errors.push_back("</" + name + "> closes <" + stack.back() + ">");
+        while (!stack.empty() && stack.back() != name) stack.pop_back();
+        if (!stack.empty()) stack.pop_back();
+      }
+    } else if (!voids.count(name)) stack.push_back(name);
+  }
+};
+static lxb_html_token_t *audit_token(lxb_html_tokenizer_t *tkz, lxb_html_token_t *token, void *ctx) {
+  auto &audit = *static_cast<MarkupAudit *>(ctx);
+  audit.token(token);
+  return audit.next(tkz, token, audit.ctx);
+}
+
+std::vector<std::string> attribute_names(lxb_dom_node_t *node) {
+  std::vector<std::string> names;
+  if (!node || node->type != LXB_DOM_NODE_TYPE_ELEMENT) return names;
+  auto *el = lxb_dom_interface_element(node);
+  for (auto *a = el->first_attr; a; a = a->next) {
+    size_t size = 0;
+    auto *name = lxb_dom_attr_qualified_name(a, &size);
+    names.emplace_back(reinterpret_cast<const char *>(name), size);
+  }
+  return names;
+}
+std::string node_path(lxb_dom_node_t *node) {
+  std::string path;
+  for (auto *n = node; n && n->type == LXB_DOM_NODE_TYPE_ELEMENT; n = n->parent) {
+    size_t index = 1;
+    for (auto *s = n->prev; s; s = s->prev) if (s->type == LXB_DOM_NODE_TYPE_ELEMENT) ++index;
+    auto part = tag_name(n) == "html" ? "html" : tag_name(n) + ":nth-child(" + std::to_string(index) + ")";
+    path = part + (path.empty() ? "" : " > " + path);
+  }
+  return path;
+}
+
 std::unique_ptr<Document> parse_html(const std::string &html, const std::string &path) {
   check_depth_prescan(html, path);
   auto doc = std::make_unique<Document>();
@@ -42,8 +109,17 @@ std::unique_ptr<Document> parse_html(const std::string &html, const std::string 
   if (!doc->tree) throw std::string("out of memory creating document");
   doc->path = path;
   doc->utf8_source = valid_utf8(html);
-  lxb_status_t status = lxb_html_document_parse(
-      doc->tree, reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
+  doc->source_bytes = html.size();
+  lxb_status_t status = lxb_html_document_parse_chunk_begin(doc->tree);
+  if (status != LXB_STATUS_OK) throw std::string("HTML parse initialization failed for ") + path;
+  auto *parser = static_cast<lxb_html_parser_t *>(doc->tree->dom_document.parser);
+  auto *tkz = lxb_html_parser_tokenizer(parser);
+  MarkupAudit audit{*doc, tkz->callback_token_done, tkz->callback_token_ctx, {}, true};
+  lxb_html_tokenizer_callback_token_done_set(tkz, audit_token, &audit);
+  status = lxb_html_document_parse_chunk(doc->tree, reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
+  if (status == LXB_STATUS_OK) status = lxb_html_document_parse_chunk_end(doc->tree);
+  lxb_html_tokenizer_callback_token_done_set(tkz, audit.next, audit.ctx);
+  for (const auto &tag : audit.stack) doc->markup_errors.push_back("unclosed <" + tag + ">");
   if (status != LXB_STATUS_OK) throw std::string("HTML parse failed for ") + path;
   check_depth_dom(*doc); // authoritative check on the real tree
   return doc;

@@ -1,3 +1,4 @@
+#include <lexbor/dom/interfaces/document_type.h>
 #include "dslvm.hpp"
 #include "analyze.hpp"
 #include "html.hpp"
@@ -650,6 +651,26 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
   checked_method(r, "Doc", "path", {}, "string",
                  [](void *p, Args &) { return Value::string(self<lmhtml::Document>(p)->path); });
+  checked_method(r, "Doc", "byte_size", {}, "int", [](void *p, Args &) {
+    return Value::integer(doc_of(p, "Doc.byte_size")->source_bytes);
+  });
+  checked_method(r, "Doc", "doctype", {}, "string", [](void *p, Args &) {
+    auto *doc = doc_of(p, "Doc.doctype");
+    auto *dt = doc->tree->dom_document.doctype;
+    if (!doc->leading_doctype || !dt) return Value::string("");
+    size_t size = 0;
+    auto *name = lxb_dom_document_type_name(dt, &size);
+    return Value::string(std::string(reinterpret_cast<const char *>(name), size));
+  });
+  checked_method(r, "Doc", "markup_errors", {}, "StrList", [&h](void *p, Args &) {
+    return h.hold(h.str_lists, "StrList", doc_of(p, "Doc.markup_errors")->markup_errors);
+  });
+  checked_method(r, "Node", "attributes", {}, "StrList", [&h](void *p, Args &) {
+    return h.hold(h.str_lists, "StrList", lmhtml::attribute_names(node_of(p, "Node.attributes")));
+  });
+  checked_method(r, "Node", "path", {}, "string", [](void *p, Args &) {
+    return Value::string(lmhtml::node_path(node_of(p, "Node.path")));
+  });
   checked_method(r, "Doc", "links", {}, "StrList", [&h](void *p, Args &) {
     auto *doc = doc_of(p, "Doc.links");
     return h.hold(h.str_lists, "StrList", lmhtml::collect_links(*doc));
@@ -951,6 +972,11 @@ void register_host(dslvm::Registry &r, Host &h) {
                    self<Report>(p)->findings.push_back({a[0].s, a[1].s, a[3].s, a[2].i});
                    return Value::none();
                  });
+  checked_method(r, "Report", "fail_if_any", {}, "void", [](void *p, Args &) {
+    auto count = self<Report>(p)->findings.size();
+    if (count) throw dslvm::Error("APP_FAIL", std::to_string(count) + " finding(s)");
+    return Value::none();
+  });
   checked_method(r, "Report", "write_text", {"string"}, "void", [](void *p, Args &a) {
     write_report_text(*self<Report>(p), a[0].s);
     return Value::none();

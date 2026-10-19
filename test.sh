@@ -708,4 +708,18 @@ if [ "$SANITIZING" = 0 ]; then
   esac
 fi
 
+"$LMSCRIPT" tests/audit.lms "$WORK/audit.dslb" "$WORK/audit.txt" || fail "audit compile"
+"$HOST" --dsl "$WORK/audit.dslb" >"$WORK/audit-run.txt" || { cat "$WORK/audit.txt"; fail "document audit"; }
+ok "source metadata, strict markup audit, attributes and node paths"
+cat > "$WORK/fail-report.lms" <<'EOF'
+p = _dsl_ schema="embedded-schema.json";
+report.add("test", "fixture.html", 0, "intentional finding");
+report.fail_if_any();
+end _dsl_
+savedsl(p, ARGV[0]);
+EOF
+"$LMSCRIPT" "$WORK/fail-report.lms" "$WORK/fail-report.dslb" || fail "report failure compile"
+if "$HOST" --dsl "$WORK/fail-report.dslb" >"$WORK/fail-report.json"; then fail "findings did not fail"; fi
+[[ "$(cat "$WORK/fail-report.json")" == *'"APP_FAIL"'* ]] || fail "missing APP_FAIL"
+ok "Report.fail_if_any fails with APP_FAIL"
 echo "PASS: $pass checks"

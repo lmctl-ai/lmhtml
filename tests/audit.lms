@@ -1,0 +1,21 @@
+p = _dsl_ schema="../schema/lmhtml.dsl.json";
+fn require_ok(condition: bool, message: string) -> void {
+  if (!condition) { report.add("test-failure", "audit", 0, message); }
+}
+let doc = html.parse("<!-- lead -->\n<!doctype html><html lang='en'><head><title>é</title></head><body><p title='a > b'>text</p><script>if (a < b) { x = '<div>'; }</script></body></html>");
+require_ok(doc.doctype() == "html", "doctype after comment");
+require_ok(doc.byte_size() == 164, "source bytes count UTF-8, not characters");
+require_ok(doc.markup_errors().len() == 0, "raw script text must not become tags");
+let para = doc.select("p").at(0);
+require_ok(para.attributes().len() == 1 && para.attributes().at(0) == "title", "attribute enumeration");
+require_ok(doc.select(para.path()).len() == 1, "path selects original node");
+require_ok(html.parse("<p>text</p>").doctype() == "", "absent doctype");
+require_ok(html.parse("x<!doctype html><p>text</p>").doctype() == "", "late doctype");
+let bad = html.parse("<p><em>text</p>");
+require_ok(bad.markup_errors().at(0) == "</p> closes <em>", "audit observes tokens before repair");
+require_ok(html.parse("<ul><li>one<li>two</ul>").markup_errors().len() > 0, "strict explicit end tags");
+require_ok(html.parse("<p title=one TITLE=two>text</p>").markup_errors().at(0) == "duplicate attribute title on <p>", "duplicate attributes before repair");
+report.write_text(${ARGV[1]});
+report.fail_if_any();
+end _dsl_
+savedsl(p, ARGV[0]);

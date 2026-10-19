@@ -17,6 +17,10 @@ struct Document {
   // lexbor does not decode legacy encodings: non-UTF-8 bytes pass through
   // raw while entities serialize as UTF-8, so saving would mix encodings.
   bool utf8_source = true;
+  size_t source_bytes = 0;
+  bool leading_doctype = false;
+  std::vector<std::string> markup_errors; // explicit-tag audit, before HTML repair
+
   Document() = default;
   Document(const Document &) = delete;
   Document &operator=(const Document &) = delete;
@@ -31,6 +35,8 @@ std::unique_ptr<Document> parse_html(const std::string &html, const std::string 
 void check_depth_prescan(const std::string &html, const std::string &path);
 void check_depth_dom(Document &doc);
 std::vector<lxb_dom_node_t *> select(lxb_dom_node_t *scope, const std::string &css);
+std::vector<std::string> attribute_names(lxb_dom_node_t *node);
+std::string node_path(lxb_dom_node_t *node);
 std::string tag_name(lxb_dom_node_t *node);
 std::string attr(lxb_dom_node_t *node, const std::string &name); // "" when absent
 bool has_attr(lxb_dom_node_t *node, const std::string &name);

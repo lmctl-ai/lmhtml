@@ -4,6 +4,9 @@
   "types": {
     "Doc": {
       "methods": {
+        "byte_size": [{ "params": [], "returns": "int" }],
+        "doctype": [{ "params": [], "returns": "string" }],
+        "markup_errors": [{ "params": [], "returns": "StrList" }],
         "select": [{ "params": ["string"], "returns": "NodeList" }],
         "path": [{ "params": [], "returns": "string" }],
         "links": [{ "params": [], "returns": "StrList" }],
@@ -15,6 +18,8 @@
     },
     "Node": {
       "methods": {
+        "attributes": [{ "params": [], "returns": "StrList" }],
+        "path": [{ "params": [], "returns": "string" }],
         "tag": [{ "params": [], "returns": "string" }],
         "attr": [{ "params": ["string"], "returns": "string" }],
         "has_attr": [{ "params": ["string"], "returns": "bool" }],
@@ -68,6 +73,7 @@
     },
     "Report": {
       "methods": {
+        "fail_if_any": [{ "params": [], "returns": "void" }],
         "add": [{ "params": ["string", "string", "int", "string"], "returns": "void" }],
         "write_text": [{ "params": ["string"], "returns": "void" }],
         "write_json": [{ "params": ["string"], "returns": "void" }]
