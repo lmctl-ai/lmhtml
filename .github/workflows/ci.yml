@@ -4,10 +4,20 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    # docs-only pushes do not need the 5-OS matrix (macOS bills 10x);
+    # path filters are not evaluated for tag pushes, so releases always build
+    paths-ignore: ["durable-memory/**", "**.md"]
   pull_request:
+    paths-ignore: ["durable-memory/**", "**.md"]
 
+# Least privilege: build jobs (which run third-party npm install scripts)
+# only read; the release job alone gets contents: write.
 permissions:
-  contents: write # release job attaches binaries to tag releases
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   build:
@@ -26,7 +36,9 @@ jobs:
       run:
         shell: bash # pwsh/zsh would silently skip the sync scripts on some runners
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false # no token in .git/config for npm scripts
 
       - name: sync lexbor (lexbor.lock) and verify vendored sdk header
         run: |
@@ -55,7 +67,7 @@ jobs:
           g++ --version | head -1
 
       - name: lmscript compiler (npm @lmctl-ai/lmctl, DSL v5)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
 
@@ -86,7 +98,7 @@ jobs:
           ext=""; [ "$RUNNER_OS" = "Windows" ] && ext=".exe"
           cp "build/lmhtml$ext" "dist/lmhtml-${{ matrix.name }}$ext"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lmhtml-${{ matrix.name }}
           path: dist/
@@ -96,10 +108,14 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # gh release create
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: lmhtml-*
           path: dist
@@ -108,7 +124,7 @@ jobs:
       - name: esbuild-style npm package layout (not published)
         run: scripts/npm-layout.sh dist npm-packages "${GITHUB_REF_NAME#v}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: npm-packages
           path: npm-packages/
@@ -116,4 +132,4 @@ jobs:
       - name: attach binaries to the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes dist/*
+        run: gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes dist/*
