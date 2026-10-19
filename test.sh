@@ -119,6 +119,7 @@ ok "structural diff: known edits found exactly, whitespace noise ignored, hash s
 
 "$HOST" --dsl build/make-template.dslb >"$WORK/tpl.jsonl" || fail "make-template run"
 cat > "$WORK/expected-template.html" <<'EOF'
+<!DOCTYPE html>
 <html><head><title>Site</title><style>.x { color: red; }</style></head><body><header class="site-header"><h1>Site</h1><p class="tag">Tagline</p></header><nav class="site-nav"><a href="p1.html">P1</a><a href="p2.html">P2</a><a href="p3.html">P3</a></nav><!-- slot:main-1 --><footer class="site-footer"><span>Copyright</span><span>Legal</span></footer></body></html>
 EOF
 cmp "$WORK/expected-template.html" build/template.html || fail "emitted template differs from expected"
@@ -284,6 +285,20 @@ compile_chunk diff-wide 'report.add("n", "", html.diff(html.load("'"$WORK"'/wide
 ( ulimit -v 1000000; timeout 60 "$HOST" --dsl "$WORK/diff-wide.dslb" >/dev/null ) || fail "20k x 20k sibling diff exceeded 1 GB / 60 s"
 [ "$(tail -1 "$WORK/wide.txt")" = "n :20000: " ] || fail "wide diff count: $(tail -1 "$WORK/wide.txt")"
 ok "diff of 20k x 20k distinct siblings stays bounded (LCS cell cap)"
+
+T=tests/fixtures/tpl-edge
+compile_chunk tpl-edge 'report.add("slots", "", html.write_template(html.load_dir("'"$T"'"), 2, "'"$WORK"'/tpl-edge.html"), ""); report.write_text("'"$WORK"'/tpl-edge.txt");'
+"$HOST" --dsl "$WORK/tpl-edge.dslb" >/dev/null || fail "tpl-edge run"
+cat > "$WORK/tpl-edge.expected" <<'EOF'
+<!DOCTYPE html>
+<html lang="en"><!-- slot:head-1 --><body class="p1"><!-- slot:text-2 --><header><nav><a href="/">Home</a><a href="/a">A</a></nav></header><!-- slot:main-3 --><footer><p>Copyright 2026 Example Corp, all rights reserved.</p></footer></body></html>
+EOF
+cmp "$WORK/tpl-edge.expected" "$WORK/tpl-edge.html" || fail "template edge: doctype kept, varying body text slotted"
+[ "$(tail -1 "$WORK/tpl-edge.txt")" = "slots :3: " ] || fail "template edge slot count: $(tail -1 "$WORK/tpl-edge.txt")"
+compile_chunk tpl-k-too-big 'html.write_template(html.load_dir("'"$T"'"), 4, "'"$WORK"'/never.html");'
+set +e; out="$("$HOST" --dsl "$WORK/tpl-k-too-big.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'exceeds the 3 pages'* ]] && [ ! -e "$WORK/never.html" ] || fail "k > pages not refused (exit $code): $out"
+ok "template: doctype kept, varying text slotted (no page words leak), k > pages refused"
 
 compile_chunk not-implemented 'let d = html.parse("<p>x</p>"); d.select("p").at(0).remove();'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e

@@ -80,9 +80,16 @@ template with slots for the varying parts.
 6. Output: template file + findings (one per common part, with page coverage
    `m of n`). Return value = number of slots.
 
+Emission details (review fixes): the skeleton's `<!DOCTYPE>` is kept;
+non-blank text directly inside a varying-but-recursed element becomes a
+`<!-- slot:text-N -->` (never the skeleton page's own words); attributes of
+recursed elements (e.g. `<body class="page-x">`) still come from the
+skeleton page. Coverage counts a hash for a page only after an exact
+normalized comparison with the first subtree seen for that hash.
+
 Threshold semantics: `k` counts **pages containing** the subtree (a subtree
 appearing twice in one page still counts once for coverage, but slots handle
-repetition per position).
+repetition per position). `1 <= k <= pages` or the call is refused.
 
 ## Class/id typo support (mechanism, not policy)
 

@@ -344,14 +344,24 @@ TemplateResult make_template(std::vector<Document *> &pages, int64_t k,
                              const std::string &tpl_path) {
   if (pages.empty()) throw std::string("Html.write_template: empty document collection");
   if (k < 1) throw std::string("Html.write_template: k must be at least 1");
+  if (static_cast<uint64_t>(k) > pages.size())
+    throw std::string("Html.write_template: k (" + std::to_string(k) + ") exceeds the " +
+                      std::to_string(pages.size()) + " pages; nothing could be common");
 
   // Hash every subtree of every page once; coverage = pages containing a hash.
   std::vector<std::map<lxb_dom_node_t *, uint64_t>> per_page(pages.size());
   std::map<uint64_t, std::set<size_t>> coverage;
+  std::map<uint64_t, lxb_dom_node_t *> representative; // first subtree seen per hash
   for (size_t i = 0; i < pages.size(); i++) {
     std::set<uint64_t> page_hashes;
     hash_all(lxb_dom_interface_node(pages[i]->tree), per_page[i], page_hashes);
-    for (uint64_t h : page_hashes) coverage[h].insert(i);
+    for (const auto &[node, h] : per_page[i]) {
+      auto [rep, fresh] = representative.emplace(h, node);
+      // A 64-bit FNV match counts only when the subtrees really are equal.
+      if (fresh || coverage[h].count(i) ||
+          same_tree(node, rep->second, inside_preformatted(node)))
+        coverage[h].insert(i);
+    }
   }
   // skeleton: page richest in substantial common subtrees (ties: first)
   std::map<lxb_dom_node_t *, uint64_t> *skeleton_hashes = nullptr;
@@ -374,7 +384,14 @@ TemplateResult make_template(std::vector<Document *> &pages, int64_t k,
   TemplateResult result;
   size_t slot_counter = 0;
   std::function<void(lxb_dom_node_t *)> emit_children = [&](lxb_dom_node_t *node) {
-    for (auto *c : element_children(node)) {
+    for (lxb_dom_node_t *c = node->first_child; c; c = c->next) {
+      if (c->type == LXB_DOM_NODE_TYPE_TEXT && !normalize_text(text_content(c)).empty()) {
+        // text directly inside a varying element is page content: a slot,
+        // never the skeleton page's own words
+        result.markup += "<!-- slot:text-" + std::to_string(++slot_counter) + " -->";
+        continue;
+      }
+      if (c->type != LXB_DOM_NODE_TYPE_ELEMENT) continue;
       if (is_common(c)) {
         result.findings.push_back(
             {"common-part", tpl_path,
@@ -407,11 +424,16 @@ TemplateResult make_template(std::vector<Document *> &pages, int64_t k,
   for (auto *c : element_children(lxb_dom_interface_node(pages[skeleton]->tree)))
     if (tag_name(c) == "html") root = c;
   if (!root) throw std::string("Html.write_template: skeleton page has no html element");
+  // Keep the skeleton's doctype: without it the template renders in quirks mode.
+  for (lxb_dom_node_t *c = lxb_dom_interface_node(pages[skeleton]->tree)->first_child; c;
+       c = c->next)
+    if (c->type == LXB_DOM_NODE_TYPE_DOCUMENT_TYPE) result.markup += outer_html(c) + "\n";
   if (is_common(root)) {
-    result.markup = outer_html(root);
+    result.markup += outer_html(root) + "\n";
     result.findings.push_back({"common-part", tpl_path,
-                               "html shared by " + std::to_string(pages.size()) + " of " +
-                                   std::to_string(pages.size()) + " pages",
+                               "html shared by " +
+                                   std::to_string(coverage[(*skeleton_hashes)[root]].size()) +
+                                   " of " + std::to_string(pages.size()) + " pages",
                                0});
   } else {
     result.markup += open_tag(root);
