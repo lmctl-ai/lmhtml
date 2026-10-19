@@ -23,3 +23,6 @@ scripted by lmscript `_dsl_` bytecode). Read in numeric order.
 - `07-build-run-test.md` — measured M1 build/test numbers: 3,975,600-byte
   fully static binary, 23-check test.sh (release + ASan/UBSan), bugs the
   pipeline caught.
+- `08-m2-classes-ids.md` — M2 measured note: class/id harvesting, suggest,
+  str_difference, str_* catalog; 45 signatures; PASS 30/29 checks; ASan
+  parser-selectors leak fix.
