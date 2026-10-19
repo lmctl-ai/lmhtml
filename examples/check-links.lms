@@ -1,0 +1,16 @@
+p = _dsl_ schema="../schema/lmhtml.dsl.json";
+let pages = html.load_dir("tests/fixtures/site");
+for (i in range(0, pages.len())) {
+  let page = pages.at(i);
+  let links = page.links();
+  for (j in range(0, links.len())) {
+    let url = links.at(j);
+    if (!html.link_exists(page, url)) {
+      report.add("broken-link", page.path(), 0, url + " not found");
+    }
+  }
+}
+report.write_text("build/links.txt");
+report.write_json("build/links.json");
+end _dsl_
+savedsl(p, "build/check-links.dslb");
