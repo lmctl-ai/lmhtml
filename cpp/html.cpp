@@ -31,14 +31,21 @@ std::vector<lxb_dom_node_t *> select(lxb_dom_node_t *scope, const std::string &c
     throw std::string("out of memory creating CSS parser");
   lxb_css_selector_list_t *list = lxb_css_selectors_parse(
       parser, reinterpret_cast<const lxb_char_t *>(css.data()), css.size());
-  lxb_css_parser_destroy(parser, true);
-  if (!list) throw std::string("invalid selector: ") + css;
+  if (!list) {
+    lxb_css_parser_destroy(parser, true);
+    throw std::string("invalid selector: ") + css;
+  }
   lxb_selectors_t *selectors = lxb_selectors_create();
-  if (!selectors || lxb_selectors_init(selectors) != LXB_STATUS_OK)
+  if (!selectors || lxb_selectors_init(selectors) != LXB_STATUS_OK) {
+    lxb_css_parser_destroy(parser, true);
+    lxb_css_selector_list_destroy_memory(list);
     throw std::string("out of memory creating selectors");
+  }
   std::vector<lxb_dom_node_t *> matches;
   lxb_selectors_find(selectors, scope, list, collect_cb, &matches);
   lxb_selectors_destroy(selectors, true);
+  lxb_css_parser_destroy(parser, true);
+  lxb_css_selector_list_destroy_memory(list); // the list has its own memory pool
   return matches;
 }
 
