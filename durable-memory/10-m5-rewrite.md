@@ -13,6 +13,16 @@ Machine checked (2026-10-19), same box. Measured.
   output root = the process working directory (canonicalized; anything
   outside refused with exit 3), parent directories created. Inputs are only
   modified when the script explicitly saves to the same path.
+  Write path (review fix): below the root every directory is opened with
+  `O_NOFOLLOW` relative to its parent (created if missing), the temp file is
+  a fresh `O_EXCL` name in the target directory (`.NAME.lmhtml-PID-N-RAND`),
+  written with a checked loop, `fsync`'ed, given the replaced file's mode
+  (new files: 0666 & ~umask), then `renameat`'ed; any failure unlinks it.
+  The first version used a fixed `NAME.tmp-lmhtml` opened with ofstream: a
+  planted symlink at that name redirected the write outside the root, the
+  mode of replaced files was lost, a short write left the temp behind, and
+  `save(d, "dir/")` created `dir` before failing. Owner/group and ACLs of a
+  replaced file are not preserved (the new inode belongs to the runner).
 - `--dry-run` CLI flag: `Html.save` writes nothing and reports a
   `would-save` finding (`N bytes, new|changed|unchanged`). Typical flow:
   dry-run, inspect findings, run for real; a dry-run right after a real run

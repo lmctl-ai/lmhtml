@@ -4,6 +4,12 @@
 #include "schema_embedded.hpp"
 #include "strlib.hpp"
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <fcntl.h>
+#include <random>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -315,6 +321,91 @@ template <class F> Value translate_errors(F &&fn) {
   }
 }
 
+// Write `content` to `target` (canonical, verified to lie under `root`)
+// without following symlinks anywhere below the root: each directory is
+// opened with O_NOFOLLOW relative to the previous one (created if missing),
+// the data goes to a fresh O_EXCL temp file in the final directory, is
+// fsync'ed, takes over the mode of the file it replaces, and is renamed into
+// place. Any failure removes the temp file. Swapping a directory for a
+// symlink after the path check cannot redirect the write.
+void write_inside_root(const std::string &root, const std::string &target,
+                       const std::string &content, const std::string &shown) {
+  auto fail = [&](const std::string &why) {
+    throw dslvm::Error("Html.save: " + why + ": " + shown + " (" + std::strerror(errno) + ")");
+  };
+  int dir = ::open(root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dir < 0) fail("cannot open output root");
+  struct Fd {
+    int &fd;
+    ~Fd() { if (fd >= 0) ::close(fd); }
+  } dir_guard{dir};
+  std::filesystem::path rel = std::filesystem::path(target).lexically_relative(root);
+  std::vector<std::string> parts;
+  for (const auto &part : rel) parts.push_back(part.string());
+  if (parts.empty()) fail("empty path");
+  const std::string name = parts.back();
+  if (name == "." || name == "..") fail("path must name a file");
+  for (size_t i = 0; i + 1 < parts.size(); i++) {
+    if (parts[i] == "." || parts[i] == "..") fail("unexpected path component");
+    if (::mkdirat(dir, parts[i].c_str(), 0777) < 0 && errno != EEXIST) fail("cannot create directory");
+    int next = ::openat(dir, parts[i].c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (next < 0) fail("cannot enter directory (symlink or not a directory)");
+    ::close(dir);
+    dir = next;
+  }
+  struct stat existing {};
+  mode_t mode;
+  if (::fstatat(dir, name.c_str(), &existing, AT_SYMLINK_NOFOLLOW) == 0) {
+    if (!S_ISREG(existing.st_mode)) {
+      errno = EISDIR;
+      fail("target is not a regular file");
+    }
+    mode = existing.st_mode & 07777;
+  } else {
+    mode_t mask = ::umask(0);
+    ::umask(mask);
+    mode = 0666 & ~mask;
+  }
+  static unsigned counter = 0;
+  std::string tmp;
+  int fd = -1;
+  for (int attempt = 0; fd < 0 && attempt < 100; attempt++) {
+    tmp = "." + name + ".lmhtml-" + std::to_string(::getpid()) + "-" + std::to_string(++counter) +
+          "-" + std::to_string(std::random_device{}() & 0xffffff);
+    fd = ::openat(dir, tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0 && errno != EEXIST) break;
+  }
+  if (fd < 0) fail("cannot create temp file");
+  auto discard = [&](const std::string &why) {
+    int saved = errno;
+    ::close(fd);
+    ::unlinkat(dir, tmp.c_str(), 0);
+    errno = saved;
+    fail(why);
+  };
+  for (size_t off = 0; off < content.size();) {
+    ssize_t n = ::write(fd, content.data() + off, content.size() - off);
+    if (n < 0 && errno == EINTR) continue;
+    if (n <= 0) discard("failed writing");
+    off += static_cast<size_t>(n);
+  }
+  if (::fchmod(fd, mode) < 0) discard("cannot set file mode");
+  if (::fsync(fd) < 0) discard("failed writing");
+  if (::close(fd) < 0) {
+    fd = -1;
+    int saved = errno;
+    ::unlinkat(dir, tmp.c_str(), 0);
+    errno = saved;
+    fail("failed writing");
+  }
+  if (::renameat(dir, tmp.c_str(), dir, name.c_str()) < 0) {
+    int saved = errno;
+    ::unlinkat(dir, tmp.c_str(), 0);
+    errno = saved;
+    fail("cannot rename into place");
+  }
+}
+
 void checked_method(dslvm::Registry &registry, const char *type, const char *name,
                     std::vector<std::string> params, std::string returns,
                     dslvm::Method callback) {
@@ -547,6 +638,8 @@ void register_host(dslvm::Registry &r, Host &h) {
     const std::string &path = a[1].s;
     // Output root is the process cwd; saves must stay inside it. Inputs are
     // only modified when the script explicitly saves back to the same path.
+    if (path.empty() || path.back() == '/')
+      throw dslvm::Error("Html.save: path must name a file: " + path);
     std::error_code ec;
     std::string root = std::filesystem::weakly_canonical(std::filesystem::current_path(), ec).string();
     std::string target =
@@ -575,20 +668,7 @@ void register_host(dslvm::Registry &r, Host &h) {
            std::to_string(content.size()) + " bytes, " + state, 0});
       return Value::none();
     }
-    std::string tmp = target + ".tmp-lmhtml";
-    std::filesystem::create_directories(std::filesystem::path(target).parent_path(), ec);
-    {
-      std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-      if (!out) throw dslvm::Error("Html.save: cannot write " + path);
-      out << content;
-      out.flush();
-      if (!out) throw dslvm::Error("Html.save: failed writing " + path);
-    }
-    std::filesystem::rename(tmp, target, ec);
-    if (ec) {
-      std::filesystem::remove(tmp, ec);
-      throw dslvm::Error("Html.save: cannot rename into place: " + path);
-    }
+    write_inside_root(root, target, content, path);
     return Value::none();
   });
   checked_method(r, "Html", "resolve", {"Doc", "string"}, "string", [&h](void *, Args &a) {

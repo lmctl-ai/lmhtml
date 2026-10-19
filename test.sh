@@ -376,6 +376,30 @@ set +e; out="$("$HOST" --dsl "$WORK/save-escape.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'outside the output root'* ]] && [ ! -f "$WORK/escape.html" ] || fail "save escape refusal (exit $code): $out"
 ok "Html.save refuses paths outside the output root (exit 3, nothing written)"
 
+# Save safety: tests run with cwd = $WORK/outroot (the output root).
+OUTROOT="$WORK/outroot"; mkdir -p "$OUTROOT/sub" "$WORK/outside"
+echo victim > "$WORK/outside/victim.txt"
+ln -s "$WORK/outside/victim.txt" "$OUTROOT/sub/page.html.tmp-lmhtml"   # old fixed temp name
+printf '<p>old</p>' > "$OUTROOT/mode.html"; chmod 640 "$OUTROOT/mode.html"
+compile_chunk save-safety 'let d = html.parse("<p>new</p>"); html.save(d, "sub/page.html"); html.save(d, "mode.html");'
+( cd "$OUTROOT" && "$HERE/$HOST" --dsl "$WORK/save-safety.dslb" >/dev/null ) || fail "save-safety run"
+[ "$(cat "$WORK/outside/victim.txt")" = victim ] || fail "save wrote through a planted temp-name symlink"
+[ -f "$OUTROOT/sub/page.html" ] && [ ! -L "$OUTROOT/sub/page.html" ] || fail "saved page is not a regular file"
+[ "$(stat -c %a "$OUTROOT/mode.html")" = 640 ] || fail "save did not keep the replaced file's mode: $(stat -c %a "$OUTROOT/mode.html")"
+compile_chunk save-dir 'html.save(html.parse("<p>x</p>"), "sub");'
+compile_chunk save-slash 'html.save(html.parse("<p>x</p>"), "newdir/");'
+for t in save-dir save-slash; do
+  set +e; out="$(cd "$OUTROOT" && "$HERE/$HOST" --dsl "$WORK/$t.dslb" 2>&1)"; code=$?; set -e
+  [ "$code" = 3 ] || fail "$t not refused (exit $code): $out"
+done
+[ ! -e "$OUTROOT/newdir" ] || fail "refused save left a directory behind"
+python3 -c "print('<p>' + 'x' * 300000 + '</p>')" > "$WORK/big-page.html"
+compile_chunk save-efbig 'html.save(html.load("'"$WORK"'/big-page.html"), "big.html");'
+set +e; out="$(cd "$OUTROOT" && trap '' XFSZ && ulimit -f 100 && "$HERE/$HOST" --dsl "$WORK/save-efbig.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'failed writing'* ]] || fail "short write not reported (exit $code): $out"
+[ -z "$(ls -A "$OUTROOT" | grep -v -e '^sub$' -e '^mode.html$')" ] || fail "failed save left files: $(ls -A "$OUTROOT")"
+ok "save: planted temp symlink harmless, mode kept, dir/slash refused, failed write leaves no temp"
+
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 "$HOST" --dry-run --dsl "$WORK/dry-run.dslb" >/dev/null || fail "dry-run run"
