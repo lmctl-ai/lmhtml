@@ -16,6 +16,11 @@ std::string lower(const std::string &s);
 std::string substr(const std::string &s, int64_t start, int64_t length);
 int64_t len(const std::string &s); // bytes
 
+// Glob match: `*` any run (including /), `?` one char, `[...]` char class
+// with ranges and `[!...]` negation. Literal otherwise. UTF-8 bytes are
+// compared as bytes (fine for ASCII patterns over ASCII names).
+bool match(const std::string &text, const std::string &pattern);
+
 // Items of a that are not in b; order of a kept, duplicates removed.
 // Host-side hash set: scripts never loop two collections O(n^2).
 std::vector<std::string> difference(const std::vector<std::string> &a,

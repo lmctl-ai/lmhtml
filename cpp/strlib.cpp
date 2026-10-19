@@ -31,6 +31,45 @@ std::string substr(const std::string &s, int64_t start, int64_t length) {
 
 int64_t len(const std::string &s) { return static_cast<int64_t>(s.size()); }
 
+bool match(const std::string &text, const std::string &pattern) {
+  size_t t = 0, p = 0, star_p = std::string::npos, star_t = 0;
+  while (t < text.size()) {
+    if (p < pattern.size() &&
+        (pattern[p] == '?' || pattern[p] == text[t])) {
+      t++; p++;
+    } else if (p < pattern.size() && pattern[p] == '[') {
+      size_t q = p + 1;
+      bool negate = q < pattern.size() && pattern[q] == '!';
+      if (negate) q++;
+      bool hit = false;
+      char first = 0;
+      while (q < pattern.size() && (pattern[q] != ']' || q == p + 1 + (negate ? 1 : 0))) {
+        if (q + 2 < pattern.size() && pattern[q + 1] == '-' && pattern[q + 2] != ']') {
+          if (text[t] >= pattern[q] && text[t] <= pattern[q + 2]) hit = true;
+          q += 3;
+        } else {
+          if (pattern[q] == text[t]) hit = true;
+          first = pattern[q];
+          q++;
+        }
+      }
+      (void) first;
+      if (q >= pattern.size()) return false; // unterminated class
+      if (hit == negate) { goto star_backtrack; }
+      t++; p = q + 1;
+    } else if (p < pattern.size() && pattern[p] == '*') {
+      star_p = p++; star_t = t;
+    } else {
+    star_backtrack:
+      if (star_p == std::string::npos) return false;
+      p = star_p + 1;
+      t = ++star_t;
+    }
+  }
+  while (p < pattern.size() && pattern[p] == '*') p++;
+  return p == pattern.size();
+}
+
 std::vector<std::string> difference(const std::vector<std::string> &a,
                                     const std::vector<std::string> &b) {
   std::unordered_set<std::string> excluded(b.begin(), b.end());

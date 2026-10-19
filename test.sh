@@ -317,6 +317,39 @@ report.add("strlib", "ok", 0, "checked"); report.write_text("'"$WORK"'/strlib.tx
 [ "$(cat "$WORK/strlib.txt")" = "strlib ok:0: checked" ] || fail "str_* helpers misbehave: $(cat "$WORK/strlib.txt")"
 ok "str_* helpers (starts/ends/contains/lower/substr/len) behave"
 
+compile_chunk glob 'let ok = str_match("language-rust", "language-*");
+if (!ok) { report.add("bug", "f", 0, "star"); }
+if (str_match("language-rust", "language-?")) { report.add("bug", "f", 0, "qmark"); }
+if (!str_match("fa-pencil", "fa-p*[il]")) { report.add("bug", "f", 0, "class"); }
+if (str_match("fa-pencil", "fa-p[!e]*l")) { report.add("bug", "f", 0, "negclass"); }
+if (!str_match("a/b/c.html", "*html")) { report.add("bug", "f", 0, "star slash"); }
+if (str_match("abc", "a*d")) { report.add("bug", "f", 0, "backtrack"); }
+report.add("glob", "ok", 0, "checked"); report.write_text("'"$WORK"'/glob.txt");'
+"$HOST" --dsl "$WORK/glob.dslb" >/dev/null || fail "glob chunk run"
+[ "$(cat "$WORK/glob.txt")" = "glob ok:0: checked" ] || fail "str_match glob misbehaves: $(cat "$WORK/glob.txt")"
+ok "str_match glob: * ? [...] [!...] and backtracking behave"
+
+compile_chunk link-kind 'let pages = html.load_dir("tests/fixtures/site");
+let d = pages.at(0);
+report.add("kind", "page", 0, html.link_kind(d, "index.html"));
+report.add("kind", "asset", 0, html.link_kind(d, "logo.png"));
+report.add("kind", "anchor", 0, html.link_kind(d, "#team"));
+report.add("kind", "external", 0, html.link_kind(d, "https://example.com/"));
+report.add("kind", "special", 0, html.link_kind(d, "mailto:a@b.c"));
+report.add("kind", "outside", 0, html.link_kind(d, "../escaped.html"));
+report.write_text("'"$WORK"'/link-kind.txt");'
+"$HOST" --dsl "$WORK/link-kind.dslb" >/dev/null || fail "link-kind run"
+cat > "$WORK/link-kind.expected" <<'EOF'
+kind page:0: internal-page
+kind asset:0: internal-asset
+kind anchor:0: anchor
+kind external:0: external
+kind special:0: special
+kind outside:0: outside-root
+EOF
+cmp "$WORK/link-kind.expected" "$WORK/link-kind.txt" || fail "link_kind classification wrong: $(cat "$WORK/link-kind.txt")"
+ok "link_kind classifies page/asset/anchor/external/special/outside-root"
+
 python3 - "$WORK" <<'PY'
 import pathlib,sys
 w=pathlib.Path(sys.argv[1])

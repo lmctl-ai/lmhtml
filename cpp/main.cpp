@@ -306,6 +306,33 @@ bool link_exists(Host &h, lmhtml::Document *doc, const std::string &url) {
   return anchor_ok(*target);
 }
 
+// Link classification so scripts can ignore whole categories instead of
+// post-filtering: external (http(s), //host, absolute <base href>),
+// special (mailto/tel/javascript/data/...), anchor (same-page #fragment),
+// outside-root (escapes the load_dir root), internal-page (.html/.htm or a
+// directory), internal-asset (anything else). Existence stays link_exists.
+std::string link_kind(Host &h, lmhtml::Document *doc, const std::string &raw) {
+  const char *space = " \t\n\f\r";
+  std::string url = raw;
+  url.erase(0, std::min(url.size(), url.find_first_not_of(space)));
+  url.erase(std::min(url.size(), url.find_last_not_of(space) + 1));
+  std::string scheme = lmhtml::url_scheme(url);
+  if (!scheme.empty())
+    return scheme == "http" || scheme == "https" ? "external" : "special";
+  if (url.rfind("//", 0) == 0) return "external";
+  if (!url.empty() && url[0] == '#') return "anchor";
+  LinkTarget t = resolve_link(h, doc, url);
+  if (t.external) return "external";
+  if (t.outside_root) return "outside-root";
+  std::string file = t.file;
+  std::string::size_type dot = file.rfind('.');
+  std::string ext = dot == std::string::npos ? "" : file.substr(dot);
+  if (ext == ".html" || ext == ".htm") return "internal-page";
+  std::error_code ec;
+  if (std::filesystem::is_directory(file, ec)) return "internal-page";
+  return "internal-asset";
+}
+
 // Host callbacks must surface every failure as a DSL error: lexbor wrappers
 // throw std::string, std::filesystem and allocation failures throw
 // std::exception; anything escaping main would abort the process.
@@ -691,6 +718,9 @@ void register_host(dslvm::Registry &r, Host &h) {
     if (t.external || (t.same_page && t.file.empty())) return Value::string(url);
     return Value::string(t.file + (t.has_fragment ? "#" + t.fragment : ""));
   });
+  checked_method(r, "Html", "link_kind", {"Doc", "string"}, "string", [&h](void *, Args &a) {
+    return Value::string(link_kind(h, doc_of(a[0].obj, "Html.link_kind"), a[1].s));
+  });
   checked_method(r, "Html", "link_exists", {"Doc", "string"}, "bool", [&h](void *, Args &a) {
     return Value::boolean(link_exists(h, doc_of(a[0].obj, "Html.link_exists"), a[1].s));
   });
@@ -759,6 +789,8 @@ void register_host(dslvm::Registry &r, Host &h) {
                    [](Args &a) { return Value::string(lmhtml::strlib::substr(a[0].s, a[1].i, a[2].i)); });
   checked_function(r, "str_len", {"string"}, "int",
                    [](Args &a) { return Value::integer(lmhtml::strlib::len(a[0].s)); });
+  checked_function(r, "str_match", {"string", "string"}, "bool",
+                   [](Args &a) { return Value::boolean(lmhtml::strlib::match(a[0].s, a[1].s)); });
 }
 
 // Short human/LLM-readable schema summary, mechanically derived from the

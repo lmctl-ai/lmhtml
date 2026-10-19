@@ -56,6 +56,7 @@
         "save": [{ "params": ["Doc", "string"], "returns": "void" }],
         "resolve": [{ "params": ["Doc", "string"], "returns": "string" }],
         "link_exists": [{ "params": ["Doc", "string"], "returns": "bool" }],
+        "link_kind": [{ "params": ["Doc", "string"], "returns": "string" }],
         "diff": [{ "params": ["Doc", "Doc"], "returns": "int" }],
         "write_template": [{ "params": ["DocList", "int", "string"], "returns": "int" }]
       }
@@ -78,7 +79,8 @@
     "str_contains": [{ "params": ["string", "string"], "returns": "bool" }],
     "str_lower": [{ "params": ["string"], "returns": "string" }],
     "str_substr": [{ "params": ["string", "int", "int"], "returns": "string" }],
-    "str_len": [{ "params": ["string"], "returns": "int" }]
+    "str_len": [{ "params": ["string"], "returns": "int" }],
+    "str_match": [{ "params": ["string", "string"], "returns": "bool" }]
   },
   "context": {
     "html": "Html",
