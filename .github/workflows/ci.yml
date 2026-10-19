@@ -40,30 +40,35 @@ jobs:
           - { os: windows-2022,     name: windows-x64 }
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.name }}
-    if: github.event_name != 'workflow_dispatch' || inputs.only == 'all' || matrix.name == inputs.only
+    # Job-level `if` is evaluated before matrix expansion, so the 'only'
+    # filter lives on the steps (runner spin-up for skipped jobs is seconds).
+    env:
+      ONLY_OK: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || matrix.name == inputs.only }}
     defaults:
       run:
         shell: bash # pwsh/zsh would silently skip the sync scripts on some runners
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        if: env.ONLY_OK == 'true'
         with:
           persist-credentials: false # no token in .git/config for npm scripts
 
       - name: sync lexbor (lexbor.lock) and verify vendored sdk header
+        if: env.ONLY_OK == 'true'
         run: |
           scripts/sync-lexbor.sh
           scripts/sync-sdk.sh --verify
 
       - name: toolchain (linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && env.ONLY_OK == 'true'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
 
       - name: toolchain (macos)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && env.ONLY_OK == 'true'
         run: brew install ninja coreutils
 
       - name: toolchain (windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.ONLY_OK == 'true'
         shell: bash
         run: |
           if ! command -v g++ >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1; then
@@ -76,11 +81,13 @@ jobs:
           g++ --version | head -1
 
       - name: lmscript compiler (npm @lmctl-ai/lmctl, DSL v5)
+        if: env.ONLY_OK == 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
 
       - name: install and probe the compiler
+        if: env.ONLY_OK == 'true'
         shell: bash
         run: |
           npm i -g @lmctl-ai/lmctl@0.2.347
@@ -88,7 +95,7 @@ jobs:
           grep -q lmscript compiler.txt || { echo "no v5 compiler available"; exit 1; }
 
       - name: python3 shim (windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && env.ONLY_OK == 'true'
         shell: bash
         run: |
           mkdir -p .ci-bin
@@ -97,10 +104,12 @@ jobs:
           echo "$PWD/.ci-bin" >> "$GITHUB_PATH"
 
       - name: build and test
+        if: env.ONLY_OK == 'true'
         shell: bash
         run: ./test.sh
 
       - name: package artifact
+        if: env.ONLY_OK == 'true'
         shell: bash
         run: |
           mkdir -p dist
@@ -108,6 +117,7 @@ jobs:
           cp "build/lmhtml$ext" "dist/lmhtml-${{ matrix.name }}$ext"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: env.ONLY_OK == 'true'
         with:
           name: lmhtml-${{ matrix.name }}
           path: dist/
