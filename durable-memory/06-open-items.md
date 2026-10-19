@@ -37,8 +37,15 @@
 
 6. `Html.save` + mutation methods are registered stubs until M5 — scripts
    hitting them get exit 3 "not implemented yet (milestone M5)".
-7. `link_exists` parses the target document on every cross-page anchor check
-   (no cache). Fixture-scale fine; revisit when sites grow.
+7. `link_exists` reuses pages already loaded (e.g. by `load_dir`) for
+   cross-page anchors and parses other targets once per check (no cache).
+   Link policy (shared by `Html.resolve`, see `resolve_link` in main.cpp):
+   whitespace trimmed; schemes, `//host` and absolute `<base href>` are
+   external (unchecked, count as existing); `?query` ignored; path and
+   fragment percent-decoded; relative `<base href>` honoured; `/x` resolves
+   against the `load_dir` directory (cwd for `load`/`parse`); `load_dir`
+   pages may not escape their directory; `dir/` means `dir/index.html`;
+   `#` and `#top` always exist. Paths are case-sensitive (like the server).
 8. `load_dir` includes `.html`/`.htm` recursively, sorted by path for
    determinism. No ignore rules (e.g. skip `node_modules`-style dirs) yet.
 9. lmcad's `tests/*.py` refusal suites are a good model; lmhtml currently

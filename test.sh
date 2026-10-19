@@ -156,6 +156,46 @@ assert len(lines)==3 and lines[2]==b'', lines  # two findings, no forged lines
 PY
 ok "reports stay valid: invalid UTF-8 -> U+FFFD in JSON, control chars escaped in text"
 
+compile_chunk link-policy 'let pages = html.load_dir("tests/fixtures/links");
+for (i in range(0, pages.len())) {
+  let page = pages.at(i); let links = page.links();
+  for (j in range(0, links.len())) {
+    let url = links.at(j);
+    if (html.link_exists(page, url)) { report.add("ok", page.path(), 0, url + " -> " + html.resolve(page, url)); }
+    else { report.add("broken", page.path(), 0, url + " -> " + html.resolve(page, url)); }
+  }
+}
+report.write_text("'"$WORK"'/link-policy.txt");'
+"$HOST" --dsl "$WORK/link-policy.dslb" >/dev/null || fail "link policy run"
+L=tests/fixtures/links
+cat > "$WORK/link-policy.expected" <<EOF
+ok $L/based/base.html:0: index.html#s -> $L/sub/index.html#s
+broken $L/based/base.html:0: page.html -> $L/sub/page.html
+ok $L/based/external-base.html:0: anything.html -> anything.html
+ok $L/index.html:0: sub/ -> $L/sub/index.html
+ok $L/index.html:0: sub/#s -> $L/sub/index.html#s
+ok $L/index.html:0: page.html?x=1#old -> $L/page.html#old
+ok $L/index.html:0: my%20dir/p.html -> $L/my dir/p.html
+ok $L/index.html:0: #caf%C3%A9 -> $L/index.html#caf%C3%A9
+ok $L/index.html:0:   page.html   -> $L/page.html
+ok $L/index.html:0: /page.html -> $L/page.html
+ok $L/index.html:0: //cdn.example.com/x.js -> //cdn.example.com/x.js
+ok $L/index.html:0: MAILTO:x@example.com -> MAILTO:x@example.com
+ok $L/index.html:0: javascript:void(0) -> javascript:void(0)
+ok $L/index.html:0: data:text/html,x -> data:text/html,x
+ok $L/index.html:0: ?only=query -> $L/index.html
+ok $L/index.html:0: #top -> $L/index.html#top
+broken $L/index.html:0: PAGE.html -> $L/PAGE.html
+broken $L/index.html:0: sub/../../index.html -> tests/fixtures/index.html
+broken $L/index.html:0: /../index.html -> tests/fixtures/index.html
+broken $L/index.html:0: nodir/ -> $L/nodir
+broken $L/index.html:0: my%20dir/ -> $L/my dir/index.html
+broken $L/index.html:0: page.html#nope -> $L/page.html#nope
+broken $L/index.html:0: page%00.html -> $L/page\x00.html
+EOF
+diff -u "$WORK/link-policy.expected" "$WORK/link-policy.txt" || fail "link resolution policy"
+ok "link policy: dirs, query, percent-encoding, base href, root, schemes, escapes"
+
 compile_chunk not-implemented 'html.parse("<p>x</p>").classes_used();'
 set +e; out="$("$HOST" --dsl "$WORK/not-implemented.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'not implemented yet'* ]] || fail "stub refusal (exit $code): $out"

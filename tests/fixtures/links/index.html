@@ -1,0 +1,24 @@
+<!doctype html>
+<html><body>
+<h2 id="caf&eacute;">Caf&eacute;</h2>
+<a href="sub/">dir link -> sub/index.html</a>
+<a href="sub/#s">dir link with anchor</a>
+<a href="page.html?x=1#old">query and a[name] anchor</a>
+<a href="my%20dir/p.html">percent-encoded path</a>
+<a href="#caf%C3%A9">percent-encoded anchor</a>
+<a href="  page.html  ">whitespace around href</a>
+<a href="/page.html">root-relative</a>
+<a href="//cdn.example.com/x.js">protocol-relative, unchecked</a>
+<a href="MAILTO:x@example.com">mailto, unchecked</a>
+<a href="javascript:void(0)">javascript, unchecked</a>
+<a href="data:text/html,x">data, unchecked</a>
+<a href="?only=query">same page</a>
+<a href="#top">top always exists</a>
+<a href="PAGE.html">case differs: broken</a>
+<a href="sub/../../index.html">escapes the site root: broken</a>
+<a href="/../index.html">root-relative escape: broken</a>
+<a href="nodir/">missing directory: broken</a>
+<a href="my%20dir/">directory without index.html: broken</a>
+<a href="page.html#nope">missing anchor: broken</a>
+<a href="page%00.html">NUL byte: broken</a>
+</body></html>

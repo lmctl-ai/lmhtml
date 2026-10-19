@@ -30,6 +30,11 @@ struct Host {
   std::vector<std::unique_ptr<std::vector<std::string>>> str_lists;
   std::vector<std::unique_ptr<std::vector<lmhtml::Document *>>> doc_lists;
   Report report;
+  std::map<const lmhtml::Document *, std::string> dir_roots; // Html.load_dir pages
+  std::string root_of(const lmhtml::Document *doc) const {
+    auto it = dir_roots.find(doc);
+    return it == dir_roots.end() ? "." : it->second;
+  }
   template <class T>
   Value hold(std::vector<std::unique_ptr<T>> &arena, const char *type, T value) {
     if (arena.size() >= 4096)
@@ -164,39 +169,133 @@ void write_report_json(const Report &report, const std::string &path) {
   if (!out) throw dslvm::Error("failed writing " + path);
 }
 
-// link_exists policy (v0): external schemes and non-file schemes are
-// unchecked and count as existing; relative links resolve against the
-// page's own path; a #fragment must match an id or a[name] in the target.
-bool link_exists(Host &h, lmhtml::Document *doc, const std::string &url) {
-  if (url.empty() || !lmhtml::url_scheme(url).empty()) return true;
-  std::string file = url, frag;
-  std::string::size_type hash = url.find('#');
-  if (hash != std::string::npos) {
-    file = url.substr(0, hash);
-    frag = url.substr(hash + 1);
-  }
-  lmhtml::Document *target = doc;
-  std::unique_ptr<lmhtml::Document> loaded;
-  if (!file.empty()) {
-    std::string resolved = lmhtml::resolve_relative(doc->path, file);
-    std::error_code ec;
-    if (!std::filesystem::exists(resolved, ec)) return false;
-    if (frag.empty()) return true;
-    if (resolved == doc->path) {
-      target = doc;
+// Lexical normalization: "a/./b/../c" -> "a/c"; leading ".." kept.
+std::string normalize_path(const std::string &path) { return lmhtml::resolve_relative("", path); }
+
+std::string percent_decode(const std::string &s) {
+  auto hex = [](char c) {
+    return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                                          : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+  };
+  std::string out;
+  for (size_t i = 0; i < s.size(); i++) {
+    if (s[i] == '%' && i + 2 < s.size() && hex(s[i + 1]) >= 0 && hex(s[i + 2]) >= 0) {
+      out += static_cast<char>(hex(s[i + 1]) * 16 + hex(s[i + 2]));
+      i += 2;
     } else {
-      try {
-        loaded = lmhtml::parse_html(read_file(resolved), resolved);
-      } catch (const dslvm::Error &) {
-        throw;
-      } catch (const std::string &e) {
-        throw dslvm::Error(e);
-      }
-      target = loaded.get();
+      out += s[i];
     }
   }
-  (void) h;
-  return frag.empty() || lmhtml::has_anchor(*target, frag);
+  return out;
+}
+
+bool is_external(const std::string &url) {
+  return !lmhtml::url_scheme(url).empty() || url.rfind("//", 0) == 0;
+}
+
+// Where a link points on disk. Policy (v0):
+// - leading/trailing ASCII whitespace is stripped and tab/newline removed
+//   (HTML URL parsing); http(s), mailto:, javascript:, data:, protocol-
+//   relative "//host" and anything under an absolute <base href> are
+//   external: unchecked, they count as existing;
+// - ?query is ignored; path and #fragment are percent-decoded;
+// - relative paths resolve against <base href> (if relative) or the page;
+//   root-relative "/x" resolves against the site root: the Html.load_dir
+//   directory, or the current directory for Html.load / Html.parse;
+// - pages from Html.load_dir must not escape their directory ("../" above
+//   the root is broken); a directory link means its index.html.
+struct LinkTarget {
+  bool external = false, outside_root = false;
+  std::string file;      // normalized path; the page itself for "#x" / "?q"
+  std::string fragment;  // raw (still percent-encoded), without '#'
+  bool has_fragment = false;
+  bool same_page = false; // "#x" / "?q" without <base href>: the page itself
+};
+
+LinkTarget resolve_link(Host &h, lmhtml::Document *doc, const std::string &raw) {
+  LinkTarget t;
+  const char *space = " \t\n\f\r";
+  std::string url = raw;
+  url.erase(0, std::min(url.size(), url.find_first_not_of(space)));
+  url.erase(url.find_last_not_of(space) + 1);
+  url.erase(std::remove_if(url.begin(), url.end(),
+                           [](char c) { return c == '\t' || c == '\n' || c == '\r'; }),
+            url.end());
+  if (is_external(url)) {
+    t.external = true;
+    return t;
+  }
+  std::string::size_type hash = url.find('#');
+  if (hash != std::string::npos) {
+    t.has_fragment = true;
+    t.fragment = url.substr(hash + 1);
+    url.erase(hash);
+  }
+  url.erase(std::min(url.size(), url.find('?')));
+  std::string base_file = doc->path;
+  auto bases = lmhtml::select(lxb_dom_interface_node(doc->tree), "base[href]");
+  if (!bases.empty()) {
+    std::string base = lmhtml::attr(bases[0], "href");
+    if (is_external(base)) {
+      t.external = true;
+      return t;
+    }
+    base = percent_decode(base.substr(0, std::min(base.find_first_of("?#"), base.size())));
+    if (!base.empty()) {
+      base_file = base[0] == '/' ? h.root_of(doc) + base : lmhtml::resolve_relative(doc->path, base);
+      if (base.back() == '/') base_file += "/index.html";
+    }
+  }
+  std::string path = percent_decode(url);
+  std::string root = h.root_of(doc);
+  if (path.empty() && bases.empty()) {
+    t.same_page = true;
+    t.file = doc->path;
+    return t;
+  }
+  if (path.empty()) t.file = base_file;
+  else if (path[0] == '/') t.file = root + path;
+  else t.file = lmhtml::resolve_relative(base_file, path);
+  t.file = normalize_path(t.file);
+  if (t.file.empty()) t.file = ".";
+  if (h.dir_roots.count(doc)) {
+    std::string r = normalize_path(root);
+    t.outside_root = r.empty() || r == "." ? t.file == ".." || t.file.rfind("../", 0) == 0 || t.file[0] == '/'
+                                           : t.file != r && t.file.rfind(r + "/", 0) != 0;
+  }
+  std::error_code ec;
+  if (std::filesystem::is_directory(t.file, ec)) t.file += "/index.html";
+  return t;
+}
+
+lmhtml::Document *find_loaded(Host &h, const std::string &file) {
+  for (auto &d : h.docs)
+    if (normalize_path(d->path) == file) return d.get();
+  return nullptr;
+}
+
+bool link_exists(Host &h, lmhtml::Document *doc, const std::string &url) {
+  LinkTarget t = resolve_link(h, doc, url);
+  if (t.external) return true;
+  // "#" and "#top" always scroll to the top (HTML spec); other fragments
+  // must match an id or a[name], raw or percent-decoded.
+  auto anchor_ok = [&](lmhtml::Document &target) {
+    return !t.has_fragment || t.fragment.empty() || t.fragment == "top" ||
+           lmhtml::has_anchor(target, t.fragment) ||
+           lmhtml::has_anchor(target, percent_decode(t.fragment));
+  };
+  if (t.same_page) return anchor_ok(*doc);
+  if (t.outside_root || t.file.find('\0') != std::string::npos) return false;
+  std::error_code ec;
+  if (!std::filesystem::is_regular_file(t.file, ec)) return false;
+  if (!t.has_fragment || t.fragment.empty() || t.fragment == "top") return true;
+  lmhtml::Document *target = normalize_path(doc->path) == t.file ? doc : find_loaded(h, t.file);
+  std::unique_ptr<lmhtml::Document> loaded;
+  if (!target) {
+    loaded = lmhtml::parse_html(read_file(t.file), t.file);
+    target = loaded.get();
+  }
+  return anchor_ok(*target);
 }
 
 Value not_yet(const char *name, const char *milestone) {
@@ -396,6 +495,7 @@ void register_host(dslvm::Registry &r, Host &h) {
       if (h.docs.size() >= 4096) throw dslvm::Error("Doc object limit exceeded (4096)");
       h.docs.push_back(lmhtml::parse_html(read_file(file), file));
       pages.push_back(h.docs.back().get());
+      h.dir_roots[pages.back()] = a[0].s;
     }
     return h.hold(h.doc_lists, "DocList", std::move(pages));
   });
@@ -410,19 +510,11 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
   checked_method(r, "Html", "save", {"Doc", "string"}, "void",
                  [](void *, Args &) { return not_yet("Html.save", "milestone M5"); });
-  checked_method(r, "Html", "resolve", {"Doc", "string"}, "string", [](void *, Args &a) {
-    auto *doc = doc_of(a[0].obj, "Html.resolve");
+  checked_method(r, "Html", "resolve", {"Doc", "string"}, "string", [&h](void *, Args &a) {
     const std::string &url = a[1].s;
-    if (url.empty() || !lmhtml::url_scheme(url).empty() || url[0] == '#')
-      return Value::string(url);
-    std::string frag;
-    std::string file = url;
-    std::string::size_type hash = url.find('#');
-    if (hash != std::string::npos) {
-      file = url.substr(0, hash);
-      frag = url.substr(hash);
-    }
-    return Value::string(lmhtml::resolve_relative(doc->path, file) + frag);
+    LinkTarget t = resolve_link(h, doc_of(a[0].obj, "Html.resolve"), url);
+    if (t.external || (t.same_page && t.file.empty())) return Value::string(url);
+    return Value::string(t.file + (t.has_fragment ? "#" + t.fragment : ""));
   });
   checked_method(r, "Html", "link_exists", {"Doc", "string"}, "bool", [&h](void *, Args &a) {
     return Value::boolean(link_exists(h, doc_of(a[0].obj, "Html.link_exists"), a[1].s));
