@@ -1,0 +1,75 @@
+{
+  "dsl.schema": 2,
+  "name": "lmhtml",
+  "types": {
+    "Doc": {
+      "methods": {
+        "select": [{ "params": ["string"], "returns": "NodeList" }],
+        "path": [{ "params": [], "returns": "string" }],
+        "links": [{ "params": [], "returns": "StrList" }],
+        "classes_used": [{ "params": [], "returns": "StrList" }],
+        "css_classes": [{ "params": [], "returns": "StrList" }],
+        "ids": [{ "params": [], "returns": "StrList" }]
+      }
+    },
+    "Node": {
+      "methods": {
+        "tag": [{ "params": [], "returns": "string" }],
+        "attr": [{ "params": ["string"], "returns": "string" }],
+        "has_attr": [{ "params": ["string"], "returns": "bool" }],
+        "set_attr": [{ "params": ["string", "string"], "returns": "self" }],
+        "text": [{ "params": [], "returns": "string" }],
+        "outer_html": [{ "params": [], "returns": "string" }],
+        "parent": [{ "params": [], "returns": "Node" }],
+        "select": [{ "params": ["string"], "returns": "NodeList" }],
+        "remove": [{ "params": [], "returns": "void" }],
+        "replace_with": [{ "params": ["string"], "returns": "Node" }],
+        "hash": [{ "params": [], "returns": "int" }]
+      }
+    },
+    "NodeList": {
+      "methods": {
+        "len": [{ "params": [], "returns": "int" }],
+        "at": [{ "params": ["int"], "returns": "Node" }]
+      }
+    },
+    "StrList": {
+      "methods": {
+        "len": [{ "params": [], "returns": "int" }],
+        "at": [{ "params": ["int"], "returns": "string" }]
+      }
+    },
+    "DocList": {
+      "methods": {
+        "len": [{ "params": [], "returns": "int" }],
+        "at": [{ "params": ["int"], "returns": "Doc" }]
+      }
+    },
+    "Html": {
+      "methods": {
+        "load": [{ "params": ["string"], "returns": "Doc" }],
+        "load_dir": [{ "params": ["string"], "returns": "DocList" }],
+        "parse": [{ "params": ["string"], "returns": "Doc" }],
+        "save": [{ "params": ["Doc", "string"], "returns": "void" }],
+        "resolve": [{ "params": ["Doc", "string"], "returns": "string" }],
+        "link_exists": [{ "params": ["Doc", "string"], "returns": "bool" }],
+        "diff": [{ "params": ["Doc", "Doc"], "returns": "int" }],
+        "write_template": [{ "params": ["DocList", "int", "string"], "returns": "int" }]
+      }
+    },
+    "Report": {
+      "methods": {
+        "add": [{ "params": ["string", "string", "int", "string"], "returns": "void" }],
+        "write_text": [{ "params": ["string"], "returns": "void" }],
+        "write_json": [{ "params": ["string"], "returns": "void" }]
+      }
+    }
+  },
+  "functions": {
+    "suggest": [{ "params": ["string", "StrList"], "returns": "StrList" }]
+  },
+  "context": {
+    "html": "Html",
+    "report": "Report"
+  }
+}
