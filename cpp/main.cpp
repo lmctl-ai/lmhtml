@@ -531,7 +531,18 @@ void register_host(dslvm::Registry &r, Host &h) {
     return Value::integer(static_cast<int64_t>(n));
   });
   checked_method(r, "Html", "write_template", {"DocList", "int", "string"}, "int",
-                 [](void *, Args &) { return not_yet("Html.write_template", "milestone M4"); });
+                 [&h](void *, Args &a) {
+                   auto &pages = *self<std::vector<lmhtml::Document *>>(a[0].obj);
+                   lmhtml::TemplateResult t = lmhtml::make_template(pages, a[1].i, a[2].s);
+                   std::ofstream out(a[2].s, std::ios::binary);
+                   if (!out) throw dslvm::Error("Html.write_template: cannot write " + a[2].s);
+                   out << t.markup;
+                   out.close();
+                   if (!out) throw dslvm::Error("Html.write_template: failed writing " + a[2].s);
+                   for (const auto &f : t.findings)
+                     h.report.findings.push_back({f.kind, f.file, f.message, f.line});
+                   return Value::integer(static_cast<int64_t>(t.slots));
+                 });
 
   checked_method(r, "Report", "add", {"string", "string", "int", "string"}, "void",
                  [](void *p, Args &a) {

@@ -26,4 +26,18 @@ struct DiffFinding {
 // the rest are added/removed.
 size_t diff_documents(Document &a, Document &b, std::vector<DiffFinding> &out);
 
+struct TemplateResult {
+  std::string markup;                 // emitted template with <!-- slot:TAG-N --> markers
+  size_t slots = 0;
+  std::vector<DiffFinding> findings;  // one common-part finding per maximal shared subtree
+};
+
+// Common-part extraction + sample-based template emission (see
+// durable-memory/04-algorithms.md): a normalized subtree hash is common when
+// it appears in >= k pages; the page richest in common content is the
+// skeleton; varying child positions become slots. Throws std::string on
+// bad input (k < 1, empty collection).
+TemplateResult make_template(std::vector<Document *> &pages, int64_t k,
+                             const std::string &tpl_path);
+
 }

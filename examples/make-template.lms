@@ -1,0 +1,7 @@
+p = _dsl_ schema="../schema/lmhtml.dsl.json";
+let pages = html.load_dir("tests/fixtures/tpl");
+let slots = html.write_template(pages, 4, "build/template.html");
+report.add("summary", "template", 0, str(slots) + " slots for " + str(pages.len()) + " pages");
+report.write_text("build/template-report.txt");
+end _dsl_
+savedsl(p, "build/make-template.dslb");

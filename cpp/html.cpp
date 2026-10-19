@@ -185,7 +185,7 @@ static lxb_status_t append_cb(const lxb_char_t *data, size_t len, void *ctx) {
 
 std::string outer_html(lxb_dom_node_t *node) {
   std::string out;
-  if (lxb_html_serialize_cb(node, append_cb, &out) != LXB_STATUS_OK)
+  if (lxb_html_serialize_tree_cb(node, append_cb, &out) != LXB_STATUS_OK)
     throw std::string("serialization failed");
   return out;
 }

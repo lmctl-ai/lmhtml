@@ -32,7 +32,8 @@ ok "host build ($BUILD_DIR)"
 "$LMSCRIPT" examples/check-links.lms build/check-links.dslb >"$WORK/compile.log" || fail "check-links compile with $COMPILER_SOURCE"
 "$LMSCRIPT" examples/class-typos.lms build/class-typos.dslb >>"$WORK/compile.log" || fail "class-typos compile with $COMPILER_SOURCE"
 "$LMSCRIPT" examples/diff-pages.lms build/diff-pages.dslb >>"$WORK/compile.log" || fail "diff-pages compile with $COMPILER_SOURCE"
-for f in check-links class-typos diff-pages; do
+"$LMSCRIPT" examples/make-template.lms build/make-template.dslb >>"$WORK/compile.log" || fail "make-template compile with $COMPILER_SOURCE"
+for f in check-links class-typos diff-pages make-template; do
   [ "$(od -An -t u1 -j 5 -N 1 "build/$f.dslb" | tr -d ' ')" = 5 ] || fail "$f was not compiled as bytecode v5"
 done
 ok "examples compile with $COMPILER_SOURCE as bytecode v5"
@@ -115,6 +116,21 @@ assert kinds==['diff-added','diff-changed','diff-changed','diff-removed','summar
 print('diff JSON report: 4 structural findings + 2 summaries')
 PY
 ok "structural diff: known edits found exactly, whitespace noise ignored, hash stable"
+
+"$HOST" --dsl build/make-template.dslb >"$WORK/tpl.jsonl" || fail "make-template run"
+cat > "$WORK/expected-template.html" <<'EOF'
+<html><head><title>Site</title><style>.x { color: red; }</style></head><body><header class="site-header"><h1>Site</h1><p class="tag">Tagline</p></header><nav class="site-nav"><a href="p1.html">P1</a><a href="p2.html">P2</a><a href="p3.html">P3</a></nav><!-- slot:main-1 --><footer class="site-footer"><span>Copyright</span><span>Legal</span></footer></body></html>
+EOF
+cmp "$WORK/expected-template.html" build/template.html || fail "emitted template differs from expected"
+cat > "$WORK/expected-tpl-report.txt" <<'EOF'
+common-part build/template.html:0: head shared by 5 of 5 pages
+common-part build/template.html:0: header shared by 5 of 5 pages
+common-part build/template.html:0: nav shared by 4 of 5 pages
+common-part build/template.html:0: footer shared by 4 of 5 pages
+summary template:0: 1 slots for 5 pages
+EOF
+cmp "$WORK/expected-tpl-report.txt" build/template-report.txt || fail "template findings differ from expected"
+ok "common parts across 5 pages (2 drifted) and template with 1 slot, byte-exact"
 
 cp build/links.txt "$WORK/links-first.txt"
 "$HOST" --dsl build/check-links.dslb >/dev/null || fail "deterministic rerun"
@@ -268,6 +284,11 @@ compile_chunk deep-ok 'let d = html.load("'"$WORK"'/deep-ok.html"); report.add("
 "$HOST" --dsl "$WORK/deep-ok.dslb" >/dev/null || fail "500-deep document must parse"
 [ "$(cat "$WORK/deep-ok.txt")" = "ok $WORK/deep-ok.html:0: 500" ] || fail "500-deep document content wrong: $(cat "$WORK/deep-ok.txt")"
 ok "document at 500 nesting levels parses fine (limit is 512)"
+
+compile_chunk tpl-bad-k 'let d = html.load_dir("tests/fixtures/tpl"); html.write_template(d, 0, "'"$WORK"'/t.html");'
+set +e; out="$("$HOST" --dsl "$WORK/tpl-bad-k.dslb" 2>&1)"; code=$?; set -e
+[ "$code" = 3 ] && [[ "$out" == *'k must be at least 1'* ]] || fail "write_template k=0 refusal (exit $code): $out"
+ok "write_template refuses k < 1 (exit 3)"
 
 set +e; out="$("$HOST" --dsl "$WORK/no-such.dslb" 2>&1)"; code=$?; set -e
 [ "$code" = 3 ] && [[ "$out" == *'"phase": "load"'* ]] || fail "missing bytecode refusal (exit $code): $out"
