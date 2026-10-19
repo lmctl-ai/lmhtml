@@ -170,6 +170,8 @@ new methods automatically from the registry.
 
 ### Markdown export
 
+This generic exporter is not used by lmctl skills, which are HTML only.
+
 `Doc.markdown(selector) -> string` deterministically exports exactly one selected
 content element (for example `doc.markdown("main")`). It supports h1–h4, paragraphs,
 nested lists (including ordered starts), pre/code/kbd/samp, rectangular tables,
