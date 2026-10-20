@@ -774,4 +774,6 @@ MARKDOWN_TEST_BASH="$BASH"
 case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) MARKDOWN_TEST_BASH="$(cygpath -w "$BASH")";; esac
 python3 tests/markdown-input.py "$HOST" "$LMSCRIPT" "$MARKDOWN_TEST_BASH" || fail "Markdown input CLI/DSL suite"
 ok "Markdown input, index, templates, site and drift"
+python3 tests/plain.py "$HOST" || fail "plain profile suite"
+ok "plain normalization, lint statistics, comparison and clean extraction"
 echo "PASS: $pass checks"

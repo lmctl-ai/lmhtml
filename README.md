@@ -266,3 +266,74 @@ entries inside the input directory are refused. An asset whose output path
 collides with a converted Markdown page is an error before any files are written. All output uses the existing atomic, idempotent save path
 inside the current working directory. Site builds do not delete unrelated or
 previous output files: use an empty output directory when removing chapters.
+
+## Plain structure and agent extraction
+
+The plain profile uses headings, paragraphs, lists, definition lists, tables,
+links, images and aligned code blocks. Prose has no inline code or decorative
+strong/em/b/i/u/mark/small/span/font. Use diagrams and video for visual content.
+The normal serializer escapes only ampersand and less-than in text (including
+pre/code), and ampersand and double quote in attributes. Other punctuation is
+literal UTF-8. Raw-text script/style serialization keeps their syntax intact.
+
+```
+lmhtml lint --stats notes pages
+lmhtml lint --stats --json pages
+lmhtml lint --stats --compare before/pages pages
+lmhtml lint --config plain.conf pages
+lmhtml md-lint durable-memory
+lmhtml normalize pages durable-memory
+lmhtml normalize --check pages
+lmhtml clean saved.html --base https://example.org/docs/page.html
+lmhtml clean saved.html --markdown
+lmhtml clean saved.html --check
+lmhtml clean https://example.org/docs/page.html
+```
+
+lint recursively reads .html/.htm/.md files, reports counts and densities per
+100 whitespace-delimited words, and sorts files worst-first. JSON includes a
+TOTAL record and optional before/after count and byte deltas. --compare takes a
+snapshot directory or file; it does not invoke Git. Tokens are explicitly a
+UTF-8 bytes/4 estimate, not a model tokenizer. Directory rules in --config are
+lines of DIRECTORY METRIC MAX_COUNT; comments begin with #. Counts above the
+threshold fail (exit 1). Defaults are zero. All ids are counted, but h2/h3 ids
+are permitted as stable chapter anchors; other ids fail. A team may explicitly
+allow one strong critical warning using a strong threshold of 1; normalize
+still removes emphasis by default. This profile intentionally does not guess
+whether a term deserves emphasis.
+
+Markdown lint uses md4c's parsed emphasis and code spans, not marker searches:
+underscores in identifiers, list markers and fenced code are not violations.
+It rejects emphasis, inline backticks, raw HTML, emoji, trailing whitespace,
+soft-wrapped paragraphs and notes without exactly one h1. The generated index
+comment and front matter are metadata exceptions. Index drift and link checks
+remain separate index --check and mdcheck operations.
+
+normalize applies source-range edits to HTML, leaving unrelated source intact.
+It removes decoration and inline code wrappers, class/style/data attributes,
+non-heading ids, duplicate attributes and empty prose elements; canonicalizes
+entities and non-breaking spaces; and unfolds prose. Code-block alignment stays
+unchanged. It checks decoded text equality with insignificant whitespace folded
+before each atomic save, and repeated runs are byte-idempotent. Markdown
+normalization reparses and emits the plain subset, retains front matter, and
+checks rendered text equality; unsupported structures fail rather than silently
+losing text. The DSL exposes Doc.normalize() returning source text; pass that
+text to Html.save. Doc.clean(base_url) returns extracted semantic HTML.
+
+clean chooses the first main, then role=main, then article, then body. It removes navigation,
+headers, footers, asides, forms, scripts/styles and common cookie/advertising
+containers by tag, role, class/id tokens and hidden state. It strips presentation
+and inline decoration, retains semantic structure and image alt text, and
+resolves references with --base. It never executes JavaScript. Local file
+extraction is offline and needs no runtime dependencies; URL input invokes curl
+with an argument vector, follows HTTP(S) redirects and times out after 60 seconds.
+The binaries remain static. Network redirects/content may change between calls;
+save a mirror for reproducible results. Heuristics are not a guarantee of article
+relevance and clean is not a sanitizer for arbitrary untrusted interactive HTML.
+
+clean --check requires exactly one main and compares its serialized semantic
+content with extraction, printing both on mismatch. Attribute stripping and URL
+resolution are allowed; dropping content or inline decoration fails. Stats go
+to stderr so stdout remains usable HTML or plain Markdown. Offline robustness
+checks cover saved Jekyll, Sphinx and Rust-book mirrors; fixtures in tests/plain.py
+cover removal, escaping, links, text preservation, lint counts and idempotence.

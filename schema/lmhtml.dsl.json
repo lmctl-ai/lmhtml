@@ -4,6 +4,8 @@
   "types": {
     "Doc": {
       "methods": {
+        "normalize": [{"params": [], "returns": "string"}],
+        "clean": [{"params": ["string"], "returns": "string"}],
         "source_elements": [{"params": ["string"], "returns": "StrList"}],
         "source": [{"params": [], "returns": "string"}],
         "source_inner": [{"params": ["string"], "returns": "string"}, {"params": ["string", "string"], "returns": "string"}],

@@ -23,14 +23,14 @@ with tempfile.TemporaryDirectory(dir=root/'build', prefix='markdown-') as temp:
     for name in ('features.md','other.md','pixel.svg'): shutil.copy(fixtures/name,notes/name)
     rendered=run('md2html',notes/'features.md')
     assert rendered == (fixtures/'features.golden.html').read_bytes()
-    assert b'<script>' not in rendered and b'&lt;script&gt;' in rendered
+    assert b'<script>' not in rendered and b'&lt;script>' in rendered
     assert b'class=' not in rendered and b'<code>table code</code>' in rendered
     for part in (b'id="hello-world"',b'id="hello-world-2"',b'<table>',b'<del>old</del>',b'<ul>',b'data-language="sh"',b'<br>',b'type="checkbox"'):
         assert part in rendered, part
     assert run('md2html',notes/'features.md') == rendered
     assert b'<script>' in run('md2html',notes/'features.md','--allow-html')
     templated=run('md2html',notes/'features.md','--template',fixtures/'template.html')
-    assert b'&lt;title&gt;' in templated and b'{{content}}' in templated
+    assert b'&lt;title>' in templated and b'{{content}}' in templated
     assert b'<nav><ul><li><a href="#hello-world">' in templated
     assert b'unknown' in run('md2html',notes/'other.md','--unknown',ok=False)
     run('index',notes)

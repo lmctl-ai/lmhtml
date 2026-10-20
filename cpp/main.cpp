@@ -5,6 +5,7 @@
 #include "html.hpp"
 #include "markdown.hpp"
 #include "markdown_input.hpp"
+#include "plain.hpp"
 #include "schema_embedded.hpp"
 #include "strlib.hpp"
 #include <algorithm>
@@ -680,6 +681,8 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
   checked_method(r, "Doc", "path", {}, "string",
                  [](void *p, Args &) { return Value::string(self<lmhtml::Document>(p)->path); });
+  checked_method(r,"Doc","normalize",{},"string",[](void *p,Args &){return wrap_lex("normalize",[&]{return Value::string(lmhtml::normalize_html(doc_of(p,"Doc.normalize")->source));});});
+  checked_method(r,"Doc","clean",{"string"},"string",[](void *p,Args &a){return wrap_lex("clean",[&]{return Value::string(lmhtml::clean_html(doc_of(p,"Doc.clean")->source,a[0].s));});});
   checked_method(r, "Doc", "source", {}, "string", [](void *p, Args &) {
     return Value::string(doc_of(p, "Doc.source")->source);
   });
@@ -1229,6 +1232,8 @@ int main(int argc, char **argv) {
   register_host(reg, host);
   const std::string usage =
       "usage: lmhtml --dsl-schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n"
+      "       lmhtml lint [--stats] [--json] [--config FILE] [--compare BEFORE] PATHS | md-lint PATHS\n"
+      "       lmhtml normalize [--check] PATHS | clean URL-or-file [--base URL] [--markdown] [--check]\n"
       "       lmhtml md2html IN.md [OUT.html] [--template FILE] [--allow-html]\n"
       "       lmhtml index DIR [--order FILE] [--check] | mdcheck DIR | site DIR OUT [--template FILE]\n";
   if (argc >= 2 && std::string(argv[1]) == "--dsl-schema") {
@@ -1247,6 +1252,11 @@ int main(int argc, char **argv) {
   if (argc == 2 && std::string(argv[1]) == "--dsl-signatures") {
     for (const auto &signature : reg.signatures()) std::cout << signature << "\n";
     return 0;
+  }
+  if(argc>=2 && (std::string(argv[1])=="lint"||std::string(argv[1])=="md-lint"||std::string(argv[1])=="normalize"||std::string(argv[1])=="clean")) {
+    try {return lmhtml::plain_cli(argc,argv,host.save);}
+    catch(const std::string &e){std::cerr<<e<<"\n";return 3;}
+    catch(const std::exception &e){std::cerr<<e.what()<<"\n";return 3;}
   }
   if(argc>=2 && (std::string(argv[1])=="md2html"||std::string(argv[1])=="index"||std::string(argv[1])=="site"||std::string(argv[1])=="mdcheck")) {
     try {

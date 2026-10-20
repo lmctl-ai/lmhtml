@@ -1,4 +1,5 @@
 #include "html.hpp"
+#include "plain.hpp"
 #include <cctype>
 #include <fstream>
 #include <functional>
@@ -401,9 +402,25 @@ static lxb_status_t append_cb(const lxb_char_t *data, size_t len, void *ctx) {
 }
 
 std::string outer_html(lxb_dom_node_t *node) {
-  std::string out;
-  if (lxb_html_serialize_tree_cb(node, append_cb, &out) != LXB_STATUS_OK)
-    throw std::string("serialization failed");
+  if(node->type==LXB_DOM_NODE_TYPE_TEXT) {
+    auto parent=parent_node(node);
+    auto tag=parent?tag_name(parent):"";
+    if(tag=="script"||tag=="style"||tag=="xmp"||tag=="iframe"||tag=="noembed"||tag=="noframes"||tag=="plaintext")return text_content(node);
+    return syntax_escape(text_content(node));
+  }
+  if(node->type!=LXB_DOM_NODE_TYPE_ELEMENT && node->type!=LXB_DOM_NODE_TYPE_DOCUMENT) {
+    std::string out;
+    if(lxb_html_serialize_tree_cb(node,append_cb,&out)!=LXB_STATUS_OK)throw std::string("serialization failed");
+    return out;
+  }
+  std::string out,tag;
+  if(node->type==LXB_DOM_NODE_TYPE_ELEMENT) {
+    tag=tag_name(node);out="<"+tag;
+    for(auto &name:attribute_names(node))out+=" "+name+"=\""+syntax_escape(attr(node,name),true)+"\"";
+    out+='>';
+  }
+  for(auto *c=node->first_child;c;c=c->next)out+=outer_html(c);
+  if(!tag.empty()&&std::string("|area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr|").find("|"+tag+"|")==std::string::npos)out+="</"+tag+">";
   return out;
 }
 
@@ -641,13 +658,7 @@ lxb_dom_node_t *insert_html(lxb_dom_node_t *node, const std::string &html, bool 
   return splice_fragment(node, html, before, false);
 }
 
-std::string document_html(Document &doc) {
-  std::string out;
-  if (lxb_html_serialize_tree_cb(lxb_dom_interface_node(doc.tree), append_cb, &out) !=
-      LXB_STATUS_OK)
-    throw std::string("serialization failed");
-  return out;
-}
+std::string document_html(Document &doc) { return outer_html(lxb_dom_interface_node(doc.tree)); }
 
 std::string url_scheme(const std::string &url) {
   for (size_t i = 0; i < url.size(); i++) {

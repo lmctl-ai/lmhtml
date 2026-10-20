@@ -1,4 +1,5 @@
 #include "markdown_input.hpp"
+#include "plain.hpp"
 #include "md4c/md4c-html.h"
 #include <algorithm>
 #include <filesystem>
@@ -17,11 +18,7 @@ std::string line(const std::string &s) {
   for (unsigned char c:s) { if(c<=32) { if(!out.empty()&&out.back()!=' ') out+=' '; } else out+=c; }
   return trim(out);
 }
-std::string esc(const std::string &s) {
-  std::string out;
-  for(char c:s) { switch(c) {case '&': out+="&amp;";break;case '<':out+="&lt;";break;case '>':out+="&gt;";break;case '"':out+="&quot;";break;case '\'':out+="&#39;";break;default:out+=c;} }
-  return out;
-}
+std::string esc(const std::string &s) {return syntax_escape(s);}
 std::string slug(const std::string &s) {
   std::string out;
   for(unsigned char c:s) {
@@ -54,7 +51,7 @@ std::string markdown_shell(Document &doc, const std::string &shell, const std::s
   for(auto *n:select(lxb_dom_interface_node(doc.tree), "main h2, main h3"))
     toc+="<li><a href=\"#"+esc(attr(n,"id"))+"\">"+esc(text_content(n))+"</a></li>";
   toc+="</ul>";
-  const std::map<std::string,std::string> slots={{"title",esc(doc.title)},{"summary",esc(doc.summary)},{"content",content},{"toc",toc},{"path",esc(path)}};
+  const std::map<std::string,std::string> slots={{"title",doc.title},{"summary",doc.summary},{"content",content},{"toc",toc},{"path",path}};
   const std::string pattern=shell.empty()?"<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>{{title}}</title><meta name=\"description\" content=\"{{summary}}\"></head><body><main>{{content}}</main></body></html>\n":shell;
   std::string result; size_t pos=0;
   while(pos<pattern.size()) {
@@ -64,7 +61,9 @@ std::string markdown_shell(Document &doc, const std::string &shell, const std::s
     if(b==std::string::npos) throw std::string("unclosed template placeholder");
     auto name=pattern.substr(a+2,b-a-2);auto it=slots.find(name);
     if(it==slots.end()) throw std::string("unknown template placeholder: ")+name;
-    result+=it->second;pos=b+2;
+    if(name=="content"||name=="toc")result+=it->second;
+    else {auto left=pattern.rfind('<',a),right=pattern.rfind('>',a);bool attribute=left!=std::string::npos&&(right==std::string::npos||left>right);result+=syntax_escape(it->second,attribute);}
+    pos=b+2;
   }
   if(!shell.empty()&&shell.find("{{content}}") == std::string::npos) throw std::string("template requires {{content}}");
   return result;

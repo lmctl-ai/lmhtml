@@ -78,6 +78,7 @@ inline std::string render(lxb_dom_node_t *n) {
       catch(...) { throw std::string("markdown: unsupported ordered-list start"); }
     }
     for(auto *c=n->first_child;c;c=c->next) if(c->type==LXB_DOM_NODE_TYPE_ELEMENT) {
+      if(tag_name(c)=="ul"||tag_name(c)=="ol") { out+=indent(trim(render(c)),"  ")+"\n";continue; }
       if(tag_name(c)!="li") throw std::string("markdown: list child must be li");
       auto prefix=tag=="ul"?"- ":std::to_string(number)+". ";
       auto body=trim(children(c));
@@ -111,7 +112,7 @@ inline std::string render(lxb_dom_node_t *n) {
     return out+"\n";
   }
   auto s=children(n);
-  if(tag=="h1"||tag=="h2"||tag=="h3"||tag=="h4") return "\n\n"+std::string(tag[1]-'0','#')+" "+trim(s)+"\n\n";
+  if(tag=="h1"||tag=="h2"||tag=="h3"||tag=="h4"||tag=="h5"||tag=="h6") return "\n\n"+std::string(tag[1]-'0','#')+" "+trim(s)+"\n\n";
   if(tag=="p"||tag=="figure"||tag=="figcaption"||tag=="dd") return "\n\n"+trim(s)+"\n\n";
   if(tag=="strong"||tag=="b"||tag=="dt") return "**"+trim(s)+"**";
   if(tag=="em"||tag=="i") return "*"+trim(s)+"*";
