@@ -77,7 +77,7 @@ savedsl(p, ARGV[0]);
     (work/'test.lms').write_text(source)
     command=[compiler,str(work/'test.lms'),str(work/'test.dslb')]
     # npm's extensionless launcher is a shell script on Windows, not a PE file.
-    if os.name == 'nt': command=['bash', '-c', 'exec "$@"', 'lmhtml-test', *command]
+    if os.name == 'nt': command=[sys.argv[3], '-c', 'exec "$@"', 'lmhtml-test', *command]
     subprocess.run(command,check=True)
     run('--dsl',work/'test.dslb')
     assert b'post-processed' in (work/'dsl.html').read_bytes()

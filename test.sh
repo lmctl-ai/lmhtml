@@ -770,6 +770,8 @@ expect_refusal markdown-unknown 'html.parse("<main><div>x</div></main>").markdow
 expect_refusal markdown-selector 'html.parse("<p>a</p><p>b</p>").markdown("p");' 'exactly one'
 expect_refusal markdown-span 'html.parse("<table><tr><td colspan=2>x</td></tr></table>").markdown("table");' 'spans unsupported'
 expect_refusal markdown-ragged 'html.parse("<table><tr><td>x</td><td>y</td></tr><tr><td>z</td></tr></table>").markdown("table");' 'rectangular'
-python3 tests/markdown-input.py "$HOST" "$LMSCRIPT" || fail "Markdown input CLI/DSL suite"
+MARKDOWN_TEST_BASH="$BASH"
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) MARKDOWN_TEST_BASH="$(cygpath -w "$BASH")";; esac
+python3 tests/markdown-input.py "$HOST" "$LMSCRIPT" "$MARKDOWN_TEST_BASH" || fail "Markdown input CLI/DSL suite"
 ok "Markdown input, index, templates, site and drift"
 echo "PASS: $pass checks"
