@@ -1124,7 +1124,7 @@ void print_schema_summary(dslvm::Registry &reg) {
 int main(int argc, char **argv) {
 #ifdef _WIN32
   // MSVCRT text mode would translate \n to \r\n on stdout/stderr, breaking
-  // --schema --json byte identity and the one-line JSON result protocol.
+  // --dsl-schema --json byte identity and the one-line JSON result protocol.
   _setmode(_fileno(stdout), _O_BINARY);
   _setmode(_fileno(stderr), _O_BINARY);
 #endif
@@ -1132,8 +1132,8 @@ int main(int argc, char **argv) {
   dslvm::Registry reg;
   register_host(reg, host);
   const std::string usage =
-      "usage: lmhtml --schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n";
-  if (argc >= 2 && std::string(argv[1]) == "--schema") {
+      "usage: lmhtml --dsl-schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n";
+  if (argc >= 2 && std::string(argv[1]) == "--dsl-schema") {
     if (argc == 2) {
       print_schema_summary(reg);
       return std::cout ? 0 : 4;

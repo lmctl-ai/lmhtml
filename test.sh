@@ -53,10 +53,10 @@ for f in check-links class-typos diff-pages make-template rewrite-nav; do
 done
 ok "examples compile with $COMPILER_SOURCE as bytecode v5"
 
-"$HOST" --schema --json >"$WORK/embedded-schema.json" || fail "embedded schema print"
+"$HOST" --dsl-schema --json >"$WORK/embedded-schema.json" || fail "embedded schema print"
 cmp schema/lmhtml.dsl.json "$WORK/embedded-schema.json" || fail "embedded schema differs from source bytes"
-ok "--schema --json prints byte-identical embedded schema bytes"
-"$HOST" --schema >"$WORK/schema-summary.txt" || fail "schema summary print"
+ok "--dsl-schema --json prints byte-identical embedded schema bytes"
+"$HOST" --dsl-schema >"$WORK/schema-summary.txt" || fail "schema summary print"
 python3 - "$WORK/schema-summary.txt" <<'PY'
 import re,subprocess,sys
 summary=open(sys.argv[1]).read()
@@ -69,9 +69,9 @@ for line in sigs:
   else: needle=line
   if needle not in summary: missing.append(needle)
 assert not missing, missing
-print('all', len(sigs), 'registry members listed in --schema summary')
+print('all', len(sigs), 'registry members listed in --dsl-schema summary')
 PY
-ok "--schema summary lists every registry member"
+ok "--dsl-schema summary lists every registry member"
 diff -u <("$LMSCRIPT" --dsl-signatures schema/lmhtml.dsl.json) <("$HOST" --dsl-signatures) || fail "host/compiler signatures differ"
 ok "typed registry signatures match compiler schema signatures"
 
@@ -172,9 +172,12 @@ EOF2
 set +e; out="$("$HOST" 2>&1)"; code=$?; set -e
 [ "$code" = 2 ] && [[ "$out" == *'usage: lmhtml'* ]] || fail "bad args refusal (exit $code): $out"
 ok "bad arguments refused (exit 2)"
-set +e; out="$("$HOST" --schema schema/lmhtml.dsl.json 2>&1)"; code=$?; set -e
+set +e; out="$("$HOST" --dsl-schema schema/lmhtml.dsl.json 2>&1)"; code=$?; set -e
 [ "$code" = 2 ] && [[ "$out" == *'usage: lmhtml'* ]] || fail "schema-file option accepted (exit $code): $out"
-ok "--schema FILE form refused (exit 2)"
+ok "--dsl-schema FILE form refused (exit 2)"
+set +e; out="$("$HOST" --schema 2>&1)"; code=$?; set -e
+[ "$code" = 2 ] && [[ "$out" == *'usage: lmhtml'* ]] || fail "the former --schema flag accepted (exit $code): $out"
+ok "former --schema flag refused (exit 2): the DSL schema is --dsl-schema"
 set +e; out="$("$HOST" --dsl build/check-links.dslb --bogus 2>&1)"; code=$?; set -e
 [ "$code" = 2 ] && [ ! -s "$WORK/multi.jsonl.bak" ] || true
 [ "$code" = 2 ] || fail "invalid --dsl argument accepted (exit $code): $out"

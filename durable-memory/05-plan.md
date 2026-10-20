@@ -42,7 +42,7 @@ heredocs, everything through the real compile→run pipeline.
 
 1. `scripts/sync-sdk.sh --verify` first; lexbor pin check second.
 2. Compile examples, assert `DSLB` magic + version byte 5.
-3. `lmhtml --schema` byte-identical to `schema/lmhtml.dsl.json`;
+3. `lmhtml --dsl-schema` byte-identical to `schema/lmhtml.dsl.json`;
    `--dsl-signatures` parity diff compiler vs host.
 4. Fixtures under `tests/fixtures/`: `site/` (5 pages + shared header/nav,
    broken links, one class typo), `diff-a.html`/`diff-b.html` (known edits),

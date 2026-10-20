@@ -39,8 +39,8 @@ build/lmhtml --dsl build/check-links.dslb
 
 CLI contract:
 
-- `lmhtml --schema` — compact human/LLM summary of contexts, functions, types
-- `lmhtml --schema --json` — the embedded schema bytes (compiler input)
+- `lmhtml --dsl-schema` — compact human/LLM summary of contexts, functions, types
+- `lmhtml --dsl-schema --json` — the embedded schema bytes (compiler input)
 - `lmhtml --dsl-signatures` — canonical registry signatures (parity checks)
 - `lmhtml [--dry-run] --dsl A.dslb [B.dslb ...]` — run bytecode files in order
   against the one embedded schema; all files are loaded and verified before
@@ -157,7 +157,7 @@ CMake selects those three implementations verbatim so unused catalog float
 parsers do not require floating-point `from_chars` on Apple libc++.
 `str_text_prefix(string, count)` returns at most count UTF-8 codepoints without
 splitting a character (negative counts yield empty; invalid UTF-8 is an error).
-The schema and `--schema` summary include these overloads and functions.
+The schema and `--dsl-schema` summary include these overloads and functions.
 
 `html.png_size(path)` reads only the 33-byte PNG signature/IHDR header from a
 regular local file and returns an immutable `ImageSize` with `width()` and
@@ -165,7 +165,7 @@ regular local file and returns an immutable `ImageSize` with `width()` and
 directory (or absolute), not site URLs. Missing files, non-PNG/truncated headers,
 zero dimensions and dimensions above 2^31-1 raise a located DSL error. This is
 metadata inspection, not full PNG/CRC or pixel-data validation. The returned
-object remains valid across chunks for the host lifetime. `--schema` lists the
+object remains valid across chunks for the host lifetime. `--dsl-schema` lists the
 new methods automatically from the registry.
 
 ### Markdown export

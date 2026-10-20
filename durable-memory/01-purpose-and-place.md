@@ -19,7 +19,7 @@ embedded schema; the host executes the bytecode and owns all state.
   against `schema/lmhtml.dsl.json` into `.dslb` bytecode. Tests use the published compiler selected by `scripts/select-compiler.sh`. A source adapter is available for local compiler development when `LMSCRIPT_SOURCE` is set explicitly.
 - **lmcad / lmor-dsl** are the sibling hosts whose conventions lmhtml copies:
   one binary, schema embedded at compile time, `--dsl` runs bytecode files,
-  `--schema` prints the embedded schema, `--dsl-signatures` for parity checks,
+  `--dsl-schema` prints the embedded schema, `--dsl-signatures` for parity checks,
   arena-owned host objects, exit codes 2/3/4.
 
 ## Scope boundary

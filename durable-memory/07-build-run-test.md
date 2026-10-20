@@ -29,8 +29,8 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 
 1. sdk.lock + lexbor.lock pin verification.
 2. check-links.lms compiles as bytecode v5 via the probed compiler.
-3. `--schema --json` byte-identical to `schema/lmhtml.dsl.json`;
-   `--schema` summary mechanically lists all 37 registry signatures;
+3. `--dsl-schema --json` byte-identical to `schema/lmhtml.dsl.json`;
+   `--dsl-schema` summary mechanically lists all 37 registry signatures;
    `--dsl-signatures` parity diff compiler vs host.
 4. Fixture site link check: exactly 4 broken references (missing page,
    same-page anchor, cross-page anchor, `../` escape), text and JSON reports
@@ -38,7 +38,7 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 5. Multi-file `--dsl` ordered execution, shared state, stop-on-first-failure
    (marker file must not appear), upfront argument validation (exit 2 before
    anything runs).
-6. Refusals with exit-code pins: usage (2), `--schema FILE` (2), invalid
+6. Refusals with exit-code pins: usage (2), `--dsl-schema FILE` (2), invalid
    selector (3), `at()` out of range (3), missing HTML file (3), stubbed
    later-milestone member (3), missing bytecode (3), schema-hash mismatch (3).
 7. Fully static check on the shipped binary.
