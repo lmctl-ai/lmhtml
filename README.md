@@ -48,9 +48,10 @@ CLI contract:
   With `--dry-run`, `Html.save` reports a `would-save` finding
   (`N bytes, new|changed|unchanged`) and writes nothing.
 
-Exit codes: 0 ok, 2 usage/compile, 3 host load/run error, 4 application
-failure. The default build links fully static (`-static`); disable with
-`-DLMHTML_FULL_STATIC=OFF`.
+Exit codes: 0 ok, 1 lint violations or normalize --check differences,
+2 usage/compile, 3 host load/run error, 4 application failure. On Linux
+and Windows the default build links fully static (`-static`); disable with
+`-DLMHTML_FULL_STATIC=OFF`. macOS links its platform system libraries.
 
 ## Usage guide (the five use cases)
 
@@ -327,7 +328,7 @@ and inline decoration, retains semantic structure and image alt text, and
 resolves references with --base. It never executes JavaScript. Local file
 extraction is offline and needs no runtime dependencies; URL input invokes curl
 with an argument vector, follows HTTP(S) redirects and times out after 60 seconds.
-The binaries remain static. Network redirects/content may change between calls;
+This adds no runtime library dependency to the parser. Network redirects/content may change between calls;
 save a mirror for reproducible results. Heuristics are not a guarantee of article
 relevance and clean is not a sanitizer for arbitrary untrusted interactive HTML.
 
