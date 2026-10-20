@@ -49,6 +49,10 @@ with tempfile.TemporaryDirectory(dir=root/'build', prefix='markdown-') as temp:
     first={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in out.iterdir()}
     run('site',notes,out,'--template',fixtures/'template.html')
     assert first=={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in out.iterdir()}
+    (notes/'features.html').write_text('<p>colliding asset</p>')
+    assert b'collides' in run('site',notes,work/'collision',ok=False)
+    assert not (work/'collision').exists()
+    (notes/'features.html').unlink()
     assert b'overlap' in run('site',notes,notes/'out',ok=False)
     assert b'outside' in run('md2html',notes/'features.md',root.parent/'outside.html',ok=False)
     (notes/'index.md').unlink();run('site',notes,work/'no-index')

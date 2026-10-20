@@ -1057,7 +1057,11 @@ void register_host(dslvm::Registry &r, Host &h) {
     }
     for(auto &entry:fs::recursive_directory_iterator(input)) {
       if(entry.is_symlink())throw dslvm::Error("site refuses symlink: "+entry.path().string());
-      if(entry.is_regular_file()&&entry.path().extension()!=".md")writes[(output/entry.path().lexically_relative(input)).generic_string()]=read_file(entry.path().string());
+      if(entry.is_regular_file()&&entry.path().extension()!=".md") {
+        auto target=(output/entry.path().lexically_relative(input)).generic_string();
+        if(writes.count(target))throw dslvm::Error("site asset collides with a converted Markdown page: "+entry.path().string());
+        writes[target]=read_file(entry.path().string());
+      }
     }
     for(auto &entry:writes)h.save(entry.second,entry.first);
   };

@@ -262,6 +262,7 @@ index page even when index.md is absent. It checks source links before writing.
 References outside the note directory remain links to the original repository
 files, relative to the output page; serve the repository root when previewing.
 External links are not fetched. Inputs and outputs must not overlap; symlink
-inputs are refused. All output uses the existing atomic, idempotent save path
+entries inside the input directory are refused. An asset whose output path
+collides with a converted Markdown page is an error before any files are written. All output uses the existing atomic, idempotent save path
 inside the current working directory. Site builds do not delete unrelated or
 previous output files: use an empty output directory when removing chapters.
