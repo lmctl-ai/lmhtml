@@ -680,7 +680,7 @@ std::string resolve_relative(const std::string &base_file, const std::string &re
     if (next == std::string::npos) break;
     pos = next + 1;
   }
-  std::string out = ref.rfind("/", 0) == 0 ? "/" : "";
+  std::string out = joined.rfind("/", 0) == 0 ? "/" : "";
   for (size_t i = 0; i < kept.size(); i++) {
     if (i) out += "/";
     out += kept[i];

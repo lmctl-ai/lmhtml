@@ -19,6 +19,7 @@ struct Document {
   bool utf8_source = true;
   size_t source_bytes = 0;
   std::string source;
+  std::string title, summary; // Markdown front matter or first h1/paragraph
   struct SourceRange { std::string tag; size_t begin, inner_begin, inner_end, end; size_t parent = std::string::npos; };
   std::vector<SourceRange> source_ranges;
   bool leading_doctype = false;

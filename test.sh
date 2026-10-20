@@ -26,6 +26,8 @@ scripts/sync-sdk.sh --verify >/dev/null || fail "SDK header pin mismatch"
 ok "SDK header matches sdk.lock"
 scripts/verify-string-catalog.sh || fail "string catalog pin"
 ok "string catalog matches string-catalog.lock"
+python3 scripts/verify-md4c.py || fail "md4c pin"
+ok "md4c source and MIT license hashes"
 scripts/sync-lexbor.sh --verify >/dev/null || fail "lexbor pin mismatch"
 ok "third_party/lexbor matches lexbor.lock"
 
@@ -33,7 +35,8 @@ CMAKE_EXTRA=()
 SANITIZING=0
 if [[ "$BUILD_DIR" == *sanitize* ]]; then
   SANITIZING=1
-  CMAKE_EXTRA=(-DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+  CMAKE_EXTRA=(-DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+               -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
                -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
                -DLMHTML_FULL_STATIC=OFF)
 fi
@@ -767,4 +770,6 @@ expect_refusal markdown-unknown 'html.parse("<main><div>x</div></main>").markdow
 expect_refusal markdown-selector 'html.parse("<p>a</p><p>b</p>").markdown("p");' 'exactly one'
 expect_refusal markdown-span 'html.parse("<table><tr><td colspan=2>x</td></tr></table>").markdown("table");' 'spans unsupported'
 expect_refusal markdown-ragged 'html.parse("<table><tr><td>x</td><td>y</td></tr><tr><td>z</td></tr></table>").markdown("table");' 'rectangular'
+python3 tests/markdown-input.py "$HOST" "$LMSCRIPT" || fail "Markdown input CLI/DSL suite"
+ok "Markdown input, index, templates, site and drift"
 echo "PASS: $pass checks"

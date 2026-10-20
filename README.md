@@ -182,3 +182,86 @@ call `Node.set_attr` before export if a publishing pipeline needs link mapping.
 Document chrome is excluded by selecting only content. Output ends in a newline.
 Unsupported tags, table spans/block cells, ambiguous selectors and non-UTF-8 input
 fail clearly. This is a controlled-subset exporter, not arbitrary HTML round-tripping.
+
+## Markdown notes, indexes and web views
+
+Markdown input uses the vendored md4c 0.5.2 CommonMark parser with GFM tables,
+task lists, strikethrough and autolinks. `md4c.lock` pins the upstream commit and
+SHA256 of every source/license file; `python3 scripts/verify-md4c.py` verifies them.
+There is no runtime dependency. The MIT license is included in release notices.
+
+```sh
+lmhtml md2html notes/chapter.md build/chapter.html
+lmhtml md2html notes/chapter.md                    # HTML on stdout
+lmhtml index notes                               # generate notes/index.md
+lmhtml index notes --check                       # exit 3 on drift, no writes
+lmhtml index notes --order chapter-order.txt      # one relative .md path per line
+lmhtml mdcheck notes                             # existing links + anchors
+lmhtml site notes build/notes --template shell.html
+```
+
+Write notes as UTF-8 Markdown: one `# Title`, a short opening paragraph, and
+`##`/`###` sections. Use relative links to other notes and assets. Raw HTML is
+**disabled by default** (`MD_FLAG_NOHTML`); `md2html --allow-html` or
+`html.from_markdown(text, true)` enables it explicitly for trusted input. This
+is a parser option, not a sanitizer for untrusted URL schemes or templates.
+Fenced code retains its info language in `data-language`; generated output has
+no CSS or class names. GFM tasks retain disabled checkbox inputs.
+
+An optional initial `---` block is stripped. Only single-line `title: value` and
+`summary: value` metadata are recognized; matching outer quotes are removed.
+This is deliberately not a YAML parser. Missing closing `---` is an error.
+Metadata overrides the first h1/paragraph for `Doc.title()` and `Doc.summary()`;
+newlines and whitespace collapse to one line. Headings receive lowercase ASCII
+letter/digit IDs with punctuation/whitespace replaced by hyphens, `section` as
+the empty fallback, and `-2`, `-3` collision suffixes. This includes h2/h3.
+
+`index` recursively lists .md chapters (excluding its own root index.md), with
+relative percent-encoded links and escaped one-line descriptions. Files sort by
+relative path; the optional order file places named chapters first and rejects
+unknown/duplicate names. The result is normal Markdown starting with the single
+comment `<!-- generated-by: lmhtml index -->`, followed by an index heading and
+chapter links. It is suitable for `Read durable-memory/index.md first`. Repeated
+runs are byte-identical and do not rewrite unchanged files.
+
+### Templates and DSL post-processing
+
+A template is an ordinary trusted UTF-8 HTML file with these exact placeholders:
+
+| Placeholder | Meaning |
+| --- | --- |
+| `{{title}}` | Escaped title (text or quoted HTML attribute context) |
+| `{{summary}}` | Escaped one-line summary (text or quoted attribute context) |
+| `{{path}}` | Escaped input path, or relative output path in `site` |
+| `{{content}}` | Converted body HTML, required in a custom template |
+| `{{toc}}` | Generated list of links to h2/h3 headings |
+
+Substitution happens once, so metadata containing `{{content}}` stays literal.
+Do not put metadata slots in script, style, or unquoted attribute contexts.
+Without a template the host emits an HTML5 document with lang, charset, viewport,
+title, description and main. An example shell:
+
+```html
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>{{title}}</title><meta name="description" content="{{summary}}">
+</head><body><nav>{{toc}}</nav><main>{{content}}</main></body></html>
+```
+
+`html.load("note.md")` and `html.load_dir("notes", "*.md", "")` return the same
+Doc/DocList objects as HTML. `html.from_markdown(text)` and
+`html.render_markdown(text, template_text, path)` return mutable Docs: existing
+selectors, node edits, link checks and `html.save(doc, path)` are the DSL hook
+for decorating head/nav/footer. `html.index_markdown(dir, order_text)` returns
+the index string for `html.save`; `html.check_markdown(dir)` checks links;
+`html.site(dir, out, template_text)` builds the web view. All are listed in
+`--dsl-schema`. See `tests/markdown-input.py` for an executable DSL example.
+
+`site` preserves subdirectories, copies non-Markdown assets, rewrites local
+Markdown links to .html with query/anchor suffixes preserved, and creates an
+index page even when index.md is absent. It checks source links before writing.
+References outside the note directory remain links to the original repository
+files, relative to the output page; serve the repository root when previewing.
+External links are not fetched. Inputs and outputs must not overlap; symlink
+inputs are refused. All output uses the existing atomic, idempotent save path
+inside the current working directory. Site builds do not delete unrelated or
+previous output files: use an empty output directory when removing chapters.

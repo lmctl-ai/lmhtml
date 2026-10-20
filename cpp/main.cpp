@@ -4,6 +4,7 @@
 #include "analyze.hpp"
 #include "html.hpp"
 #include "markdown.hpp"
+#include "markdown_input.hpp"
 #include "schema_embedded.hpp"
 #include "strlib.hpp"
 #include <algorithm>
@@ -50,6 +51,10 @@ struct Host {
   std::vector<std::unique_ptr<std::vector<std::string>>> str_lists;
   std::vector<std::unique_ptr<std::vector<lmhtml::Document *>>> doc_lists;
   Report report;
+  std::function<Value(const std::string &, const std::string &)> save;
+  std::function<std::string(const std::string &, const std::string &)> index;
+  std::function<void(const std::string &, const std::string &, const std::string &)> site;
+  std::function<void(const std::string &)> mdcheck;
   bool dry_run = false; // --dry-run: Html.save reports would-save, writes nothing
   std::map<const lmhtml::Document *, std::string> dir_roots; // Html.load_dir pages
   std::string root_of(const lmhtml::Document *doc) const {
@@ -93,6 +98,25 @@ std::string read_file(const std::string &path) {
   data << in.rdbuf();
   if (in.bad()) throw dslvm::Error("cannot read " + path);
   return data.str();
+}
+
+std::unique_ptr<lmhtml::Document> load_document(const std::string &path) {
+  auto text = read_file(path);
+  return std::filesystem::path(path).extension() == ".md" ? lmhtml::from_markdown(text, path) : lmhtml::parse_html(text, path);
+}
+
+std::vector<std::unique_ptr<lmhtml::Document>> markdown_notes(const std::string &dir) {
+  namespace fs = std::filesystem;
+  if(!fs::is_directory(dir)) throw dslvm::Error("not a directory: " + dir);
+  std::vector<std::string> paths;
+  for(auto &entry:fs::recursive_directory_iterator(dir)) {
+    if(entry.is_symlink()) throw dslvm::Error("Markdown directory contains symlink: " + entry.path().string());
+    if(entry.is_regular_file() && entry.path().extension()==".md") paths.push_back(entry.path().generic_string());
+  }
+  std::sort(paths.begin(),paths.end());
+  std::vector<std::unique_ptr<lmhtml::Document>> result;
+  for(auto &path:paths) result.push_back(load_document(path));
+  return result;
 }
 
 // Length of the valid UTF-8 sequence starting at s[i], or 0 when invalid
@@ -298,7 +322,7 @@ LinkTarget resolve_link(Host &h, lmhtml::Document *doc, const std::string &raw) 
                                            : t.file != r && t.file.rfind(r + "/", 0) != 0;
   }
   std::error_code ec;
-  if (std::filesystem::is_directory(t.file, ec)) t.file += "/index.html";
+  if (std::filesystem::is_directory(t.file, ec)) t.file += std::filesystem::exists(t.file + "/index.md") ? "/index.md" : "/index.html";
   return t;
 }
 
@@ -326,7 +350,7 @@ bool link_exists(Host &h, lmhtml::Document *doc, const std::string &url) {
   lmhtml::Document *target = normalize_path(doc->path) == t.file ? doc : find_loaded(h, t.file);
   std::unique_ptr<lmhtml::Document> loaded;
   if (!target) {
-    loaded = lmhtml::parse_html(read_file(t.file), t.file);
+    loaded = load_document(t.file);
     target = loaded.get();
   }
   return anchor_ok(*target);
@@ -349,7 +373,7 @@ std::string link_kind(Host &h, lmhtml::Document *doc, const std::string &raw) {
   std::string file = lmhtml::strlib::lower(t.file);
   std::string::size_type dot = file.rfind('.');
   std::string ext = dot == std::string::npos ? "" : file.substr(dot);
-  if (ext == ".html" || ext == ".htm") return "internal-page";
+  if (ext == ".html" || ext == ".htm" || ext == ".md") return "internal-page";
   std::error_code ec;
   if (std::filesystem::is_directory(t.file, ec)) return "internal-page";
   return "internal-asset";
@@ -872,8 +896,26 @@ void register_host(dslvm::Registry &r, Host &h) {
       throw dslvm::Error("png_size: invalid PNG dimensions: " + path);
     return h.hold(h.image_sizes, "ImageSize", ImageSize{width, height});
   });
+  for (const std::string field : {"title", "summary"}) {
+    checked_method(r, "Doc", field == "title" ? "title" : "summary", {}, "string", [field](void *p, Args &) {
+      auto *doc=doc_of(p,"Doc metadata");
+      auto value=field=="title"?doc->title:doc->summary;
+      if(value.empty()) {auto nodes=lmhtml::select(lxb_dom_interface_node(doc->tree),field=="title"?"h1, title":"p");if(!nodes.empty())value=lmhtml::text_content(nodes[0]);}
+      return Value::string(value);
+    });
+  }
+  auto from_md=[&h](const std::string &text,bool allow,const std::string &shell,const std::string &path) {
+    return wrap_lex("Markdown", [&] {
+      if(h.docs.size()>=4096)throw dslvm::Error("Doc object limit exceeded (4096)");
+      h.docs.push_back(lmhtml::from_markdown(text,path,allow,shell));
+      return Value::object("Doc",h.docs.back().get());
+    });
+  };
+  checked_method(r,"Html","from_markdown",{"string"},"Doc",[from_md](void *,Args &a){return from_md(a[0].s,false,"","");});
+  checked_method(r,"Html","from_markdown",{"string","bool"},"Doc",[from_md](void *,Args &a){return from_md(a[0].s,a[1].b,"","");});
+  checked_method(r,"Html","render_markdown",{"string","string","string"},"Doc",[from_md](void *,Args &a){return from_md(a[0].s,false,a[1].s,a[2].s);});
   checked_method(r, "Html", "load", {"string"}, "Doc", [&h](void *, Args &a) {
-    auto doc = lmhtml::parse_html(read_file(a[0].s), a[0].s);
+    auto doc = load_document(a[0].s);
     if (h.docs.size() >= 4096) throw dslvm::Error("Doc object limit exceeded (4096)");
     h.docs.push_back(std::move(doc));
     return Value::object("Doc", h.docs.back().get());
@@ -894,7 +936,7 @@ void register_host(dslvm::Registry &r, Host &h) {
       std::error_code entry_ec; // broken symlinks are skipped, not fatal
       if (!it->is_regular_file(entry_ec)) continue;
       std::string ext = it->path().extension().string();
-      if (ext != ".html" && ext != ".htm") continue;
+      if (ext != ".html" && ext != ".htm" && ext != ".md") continue;
       // paths are normalized to forward slashes everywhere the DSL sees them
       std::string rel = it->path().lexically_relative(dir).generic_string();
       if (!include.empty() && include != "*" && !glob_path_match(rel, include_pat)) continue;
@@ -905,7 +947,7 @@ void register_host(dslvm::Registry &r, Host &h) {
     std::sort(files.begin(), files.end());
     for (const auto &file : files) {
       if (h.docs.size() >= 4096) throw dslvm::Error("Doc object limit exceeded (4096)");
-      h.docs.push_back(lmhtml::parse_html(read_file(file), file));
+      h.docs.push_back(load_document(file));
       pages.push_back(h.docs.back().get());
       h.dir_roots[pages.back()] = dir;
     }
@@ -972,6 +1014,56 @@ void register_host(dslvm::Registry &r, Host &h) {
     write_inside_root(root, target, content, path);
     return Value::none();
   };
+  h.save=save_source;
+  h.index=[](const std::string &dir,const std::string &order) {
+    auto notes=markdown_notes(dir);std::vector<lmhtml::Document*> docs;
+    for(auto &note:notes)docs.push_back(note.get());
+    return lmhtml::markdown_index(docs,dir,order);
+  };
+  h.mdcheck=[&h](const std::string &dir) {
+    auto notes=markdown_notes(dir);std::vector<std::string> errors;
+    for(auto &doc:notes)for(auto &url:lmhtml::collect_links(*doc))
+      if(!link_exists(h,doc.get(),url))errors.push_back(doc->path+": broken link: "+url);
+    if(!errors.empty()) {std::string message;for(auto &e:errors)message+=e+"\n";throw dslvm::Error(message);}
+  };
+  h.site=[&h](const std::string &dir,const std::string &out,const std::string &shell) {
+    namespace fs=std::filesystem;
+    auto input=fs::weakly_canonical(dir),output=fs::weakly_canonical(out);
+    auto within=[](const fs::path &a,const fs::path &b){auto rel=a.lexically_relative(b).generic_string();return rel=="."||(!rel.empty()&&rel!=".."&&rel.rfind("../",0)!=0);};
+    if(within(output,input)||within(input,output))throw dslvm::Error("site input and output roots must not overlap");
+    h.mdcheck(dir);
+    auto docs=markdown_notes(dir);
+    bool has_index=false;
+    for(auto &d:docs)if(fs::path(d->path).lexically_relative(dir)=="index.md")has_index=true;
+    if(!has_index)docs.push_back(lmhtml::from_markdown(h.index(dir,""),(fs::path(dir)/"index.md").generic_string()));
+    // Stage all conversion and link validation before writing any output.
+    std::map<std::string,std::string> writes;
+    for(auto &doc:docs) {
+      auto relative=fs::path(doc->path).lexically_relative(dir);relative.replace_extension(".html");
+      auto target=output/relative;
+      for(auto *node:lmhtml::select(lxb_dom_interface_node(doc->tree),"a[href],img[src]")) {
+        std::string attribute=lmhtml::has_attr(node,"href")?"href":"src",url=lmhtml::attr(node,attribute);
+        if(url.empty()||url[0]=='#'||url[0]=='/'||!lmhtml::url_scheme(url).empty())continue;
+        auto split=url.find_first_of("?#");auto suffix=split==std::string::npos?"":url.substr(split);
+        auto linked=fs::weakly_canonical(fs::path(doc->path).parent_path()/percent_decode(url.substr(0,split)));
+        if(fs::is_directory(linked))linked/=fs::exists(linked/"index.md")?"index.md":"index.html";
+        if(within(linked,input)) {auto rel=linked.lexically_relative(input);if(rel.extension()==".md")rel.replace_extension(".html");linked=output/rel;}
+        auto href=linked.lexically_relative(target.parent_path()).generic_string();
+        std::string encoded;const char *hex="0123456789ABCDEF";
+        for(unsigned char c:href) {if(c<=32||c>=127||c=='#'||c=='?'||c=='%'){encoded+='%';encoded+=hex[c>>4];encoded+=hex[c&15];}else encoded+=c;}
+        lmhtml::set_attr(node,attribute,encoded+suffix);
+      }
+      writes[target.generic_string()]=lmhtml::markdown_shell(*doc,shell,relative.generic_string());
+    }
+    for(auto &entry:fs::recursive_directory_iterator(input)) {
+      if(entry.is_symlink())throw dslvm::Error("site refuses symlink: "+entry.path().string());
+      if(entry.is_regular_file()&&entry.path().extension()!=".md")writes[(output/entry.path().lexically_relative(input)).generic_string()]=read_file(entry.path().string());
+    }
+    for(auto &entry:writes)h.save(entry.second,entry.first);
+  };
+  checked_method(r,"Html","index_markdown",{"string","string"},"string",[&h](void *,Args &a){return wrap_lex("index",[&]{return Value::string(h.index(a[0].s,a[1].s));});});
+  checked_method(r,"Html","site",{"string","string","string"},"void",[&h](void *,Args &a){return wrap_lex("site",[&]{h.site(a[0].s,a[1].s,a[2].s);return Value::none();});});
+  checked_method(r,"Html","check_markdown",{"string"},"void",[&h](void *,Args &a){return wrap_lex("Markdown links",[&]{h.mdcheck(a[0].s);return Value::none();});});
   checked_method(r, "Html", "save", {"Doc", "string"}, "void", [save_source](void *, Args &a) {
     auto *doc = doc_of(a[0].obj, "Html.save");
     if (!doc->utf8_source) throw dslvm::Error("Html.save: source is not valid UTF-8");
@@ -1132,7 +1224,9 @@ int main(int argc, char **argv) {
   dslvm::Registry reg;
   register_host(reg, host);
   const std::string usage =
-      "usage: lmhtml --dsl-schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n";
+      "usage: lmhtml --dsl-schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n"
+      "       lmhtml md2html IN.md [OUT.html] [--template FILE] [--allow-html]\n"
+      "       lmhtml index DIR [--order FILE] [--check] | mdcheck DIR | site DIR OUT [--template FILE]\n";
   if (argc >= 2 && std::string(argv[1]) == "--dsl-schema") {
     if (argc == 2) {
       print_schema_summary(reg);
@@ -1149,6 +1243,32 @@ int main(int argc, char **argv) {
   if (argc == 2 && std::string(argv[1]) == "--dsl-signatures") {
     for (const auto &signature : reg.signatures()) std::cout << signature << "\n";
     return 0;
+  }
+  if(argc>=2 && (std::string(argv[1])=="md2html"||std::string(argv[1])=="index"||std::string(argv[1])=="site"||std::string(argv[1])=="mdcheck")) {
+    try {
+      std::string command=argv[1],shell,order;bool allow=false,check=false;std::vector<std::string> args;
+      for(int i=2;i<argc;i++) {
+        std::string arg=argv[i];
+        if(arg=="--allow-html"&&command=="md2html")allow=true;
+        else if(arg=="--check"&&command=="index")check=true;
+        else if(arg=="--template"&&(command=="site"||command=="md2html")&&i+1<argc)shell=read_file(argv[++i]);
+        else if(arg=="--order"&&command=="index"&&i+1<argc)order=read_file(argv[++i]);
+        else if(arg.rfind("--",0)==0)throw dslvm::Error("unknown or incomplete option: "+arg);
+        else args.push_back(arg);
+      }
+      if(command=="md2html"&&(args.size()==1||args.size()==2)) {
+        auto doc=lmhtml::from_markdown(read_file(args[0]),args[0],allow,shell);auto text=doc->source;
+        if(args.size()==2)host.save(text,args[1]);else std::cout<<text;
+      } else if(command=="index"&&args.size()==1) {
+        auto text=host.index(args[0],order),path=(std::filesystem::path(args[0])/"index.md").generic_string();
+        if(check) {if(!std::filesystem::exists(path)||read_file(path)!=text)throw dslvm::Error("index drift: run lmhtml index "+args[0]);}
+        else host.save(text,path);
+      } else if(command=="site"&&args.size()==2)host.site(args[0],args[1],shell);
+      else if(command=="mdcheck"&&args.size()==1)host.mdcheck(args[0]);
+      else {std::cerr<<usage;return 2;}
+      return std::cout?0:4;
+    } catch(const std::string &e) {std::cerr<<e<<"\n";return 3;}
+      catch(const std::exception &e) {std::cerr<<e.what()<<"\n";return 3;}
   }
   int files_at = 2;
   if (argc >= 2 && std::string(argv[1]) == "--dry-run") {
