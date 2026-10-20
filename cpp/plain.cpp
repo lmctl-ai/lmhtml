@@ -139,7 +139,7 @@ std::string normalize_html(const std::string &s) {
     // Context-sensitive tags (td/head/etc.) may be repaired out of fragments.
     if(nodes.empty())continue;
     auto *n=nodes.back();std::string canonical="<"+r.tag;
-    for(auto &a:attribute_names(n))if(!drop_attr(r.tag,a))canonical+=" "+a+"=\""+syntax_escape(spaces(attr(n,a)),true)+"\"";
+    for(auto &a:attribute_names(n))if(!drop_attr(r.tag,a))canonical+=" "+a+"=\""+syntax_escape(attr(n,a),true)+"\"";
     canonical+='>';
     bool change=std::any_of(frag->markup_errors.begin(),frag->markup_errors.end(),[](const std::string &e){return e.rfind("duplicate attribute",0)==0;});for(auto &a:attribute_names(n))if(drop_attr(r.tag,a))change=true;
     if(opening.find('&')!=opening.npos||change)edits.push_back({r.begin,r.inner_begin,canonical});
@@ -148,7 +148,7 @@ std::string normalize_html(const std::string &s) {
   auto text=[&](size_t a,size_t b){if(a>=b)return;auto part=s.substr(a,b-a);if(part.find("<!--")!=part.npos||part.find("<!doctype")!=part.npos||part.find("<!DOCTYPE")!=part.npos)return;
     bool pre=false,raw=false,prose=false;for(auto &r:d->source_ranges)if(a>=r.inner_begin&&b<=r.inner_end){pre|=r.tag=="pre";raw|=r.tag=="script"||r.tag=="style";prose|=member(r.tag,"|p|li|dt|dd|h1|h2|h3|h4|td|th|");}
     if(raw)return;
-    auto value=syntax_escape(spaces(decode(part)));if(!pre&&prose)value=std::regex_replace(value,std::regex("[ \\t]*[\\r\\n]+[ \\t]*")," ");
+    auto decoded=decode(part);auto value=syntax_escape(pre?decoded:spaces(decoded));if(!pre&&prose)value=std::regex_replace(value,std::regex("[ \\t]*[\\r\\n]+[ \\t]*")," ");
     if(value!=part)edits.push_back({a,b,value});};
   for(auto &r:tags){text(pos,r.first);pos=std::max(pos,r.second);}text(pos,s.size());
   auto out=apply(s,edits);

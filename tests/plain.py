@@ -51,6 +51,9 @@ with tempfile.TemporaryDirectory(dir='build',prefix='plain-') as tmp:
   write(page, markup);run('lint',page,ok=False);run('normalize',page);run('lint',page);run('normalize','--check',page)
  write(page, '<main><h1>x</h1><pre><kbd>one</kbd> \n<!-- separator --><samp>two</samp></pre></main>')
  run('normalize',page);run('lint',page);run('clean','--check',page)
+ write(page, '<pre><code>"a&nbsp;b"</code></pre><a href="a&nbsp;b">target</a>')
+ run('normalize',page);assert '<code>"a\u00a0b"</code>' in page.read_text(encoding='utf-8') and 'href="a\u00a0b"' in page.read_text(encoding='utf-8')
+ run('normalize','--check',page)
  write(page, "<p title='literal'>unchanged"+" &amp; &lt; \" ' > ©</p>\n");run('normalize',page);assert page.read_text(encoding="utf-8")=="<p title='literal'>unchanged &amp; &lt; \" ' > ©</p>\n"
  write(page, '<p>unchanged &amp; &lt; " \' > ©</p>\n');run('normalize',page);assert page.read_text(encoding="utf-8")=='<p>unchanged &amp; &lt; " \' > ©</p>\n'
 if shutil.which('curl'):
