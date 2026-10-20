@@ -65,7 +65,7 @@ std::string fetch_url(const std::string &url,std::string &effective) {
 std::vector<std::string> files(const std::vector<std::string> &paths) {
   namespace fs=std::filesystem;std::set<std::string> found;
   for(auto &p:paths){if(fs::is_directory(p)){for(auto &e:fs::recursive_directory_iterator(p)){if(e.is_symlink())continue;auto ext=e.path().extension().string();if(e.is_regular_file()&&(ext==".html"||ext==".htm"||ext==".md"))found.insert(e.path().generic_string());}}
-  else if(fs::is_regular_file(p))found.insert(p);else throw std::string("missing path: ")+p;}
+  else if(fs::is_regular_file(p))found.insert(fs::path(p).generic_string());else throw std::string("missing path: ")+p;}
   return {found.begin(),found.end()};
 }
 std::string json(const std::string &s) {std::string o="\"";for(unsigned char c:s){if(c=='"'||c=='\\'){o+='\\';o+=c;}else if(c=='\n')o+="\\n";else if(c=='\r')o+="\\r";else if(c=='\t')o+="\\t";else if(c<32)o+=' ';else o+=c;}return o+'"';}
@@ -262,10 +262,11 @@ int plain_cli(int argc,char **argv,const std::function<void(const std::string &,
   auto list=files(paths);
   if(command=="normalize") {bool changed=false;for(auto &p:list){auto s=read(p);auto out=std::filesystem::path(p).extension()==".md"?normalize_markdown(s):normalize_html(s);if(s!=out){changed=true;std::cerr<<p<<": normalize"<<(check?" required":" applied")<<"\n";if(!check)save(out,p);}}return check&&changed?1:0;}
   std::map<std::string,std::map<std::string,size_t>> limits;
-  if(!config.empty()){std::istringstream in(read(config));std::string row;while(std::getline(in,row)){if(trim(row).empty()||trim(row)[0]=='#')continue;std::istringstream r(row);std::string dir,key;size_t n;if(!(r>>dir>>key>>n))throw std::string("config: expected DIRECTORY METRIC MAX_COUNT");limits[dir][key]=n;}}
+  if(!config.empty()){std::istringstream in(read(config));std::string row;while(std::getline(in,row)){if(trim(row).empty()||trim(row)[0]=='#')continue;std::istringstream r(row);std::string dir,key;size_t n;if(!(r>>dir>>key>>n))throw std::string("config: expected DIRECTORY METRIC MAX_COUNT");limits[std::filesystem::absolute(dir).lexically_normal().generic_string()][key]=n;}}
   std::vector<PlainStats> reports;PlainStats total;total.path="TOTAL";
   for(auto &p:list){auto s=read(p);auto r=plain_stats(s,p,std::filesystem::path(p).extension()==".md");
-    for(auto &c:r.counts){size_t limit=0;for(auto &rule:limits)if(p.rfind(rule.first,0)==0&&rule.second.count(c.first))limit=rule.second.at(c.first);
+    for(auto &c:r.counts){size_t limit=0;auto absolute=std::filesystem::absolute(p).lexically_normal().generic_string();
+      for(auto &rule:limits)if((absolute==rule.first||absolute.rfind(rule.first+"/",0)==0)&&rule.second.count(c.first))limit=rule.second.at(c.first);
       if(c.first!="id"&&c.second>limit)r.findings.push_back(c.first+": "+std::to_string(c.second)+" (limit "+std::to_string(limit)+")");
       total.counts[c.first]+=c.second;}
     total.bytes+=r.bytes;total.words+=r.words;total.findings.insert(total.findings.end(),r.findings.begin(),r.findings.end());reports.push_back(r);}

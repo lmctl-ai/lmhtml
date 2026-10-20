@@ -30,6 +30,8 @@ with tempfile.TemporaryDirectory(dir='build',prefix='plain-') as tmp:
  delta=json.loads(run('lint','--json','--compare',original,page).stdout)['delta'];assert delta['counts']['b']==-1
  policy=p/'policy';write(policy, str(original)+' b 1\n')
  run('lint','--config',policy,original)
+ sibling=p/'before-more';sibling.mkdir();write(sibling/'a.html','<p><b>not exempt</b></p>')
+ run('lint','--config',policy,sibling,ok=False)
  dirty=p/'dirty.html';write(dirty, '<main><h1>x</h1><nav>menu</nav><div class="cookie-banner">accept</div><p><span>Hello</span> <a href="../b#x">world</a></p><img src="/a.png" alt="diagram"><script>bad()</script></main>')
  clean=run('clean',dirty,'--base','https://example.org/docs/a.html').stdout
  assert 'menu' not in clean and 'accept' not in clean and 'bad()' not in clean
