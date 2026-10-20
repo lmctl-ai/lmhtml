@@ -75,7 +75,10 @@ end _dsl_
 savedsl(p, ARGV[0]);
 '''.replace('PATH',json.dumps(notes.as_posix())).replace('OUTPUT',json.dumps((work/'dsl.html').as_posix()))
     (work/'test.lms').write_text(source)
-    subprocess.run([compiler,str(work/'test.lms'),str(work/'test.dslb')],check=True)
+    command=[compiler,str(work/'test.lms'),str(work/'test.dslb')]
+    # npm's extensionless launcher is a shell script on Windows, not a PE file.
+    if os.name == 'nt': command=['bash', '-c', 'exec "$@"', 'lmhtml-test', *command]
+    subprocess.run(command,check=True)
     run('--dsl',work/'test.dslb')
     assert b'post-processed' in (work/'dsl.html').read_bytes()
 print(f'PASS: {count} Markdown input CLI/DSL checks')
