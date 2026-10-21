@@ -51,3 +51,6 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
   list owns a separate memory pool; ASan caught ~110 KB leaked per `select()`.
 - `ldd` exits non-zero on static binaries; combined with `pipefail` this
   failed the static check even when the binary was correct.
+
+`lmhtml --version` prints `lmhtml <project VERSION from CMakeLists.txt>`. Bump that VERSION before tagging: the
+release job fails when the tag and `--version` differ (lmscript `@latest` keeps a cached binary only while they agree).

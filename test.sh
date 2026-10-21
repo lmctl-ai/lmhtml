@@ -56,6 +56,11 @@ for f in check-links class-typos diff-pages make-template rewrite-nav; do
 done
 ok "examples compile with $COMPILER_SOURCE as bytecode v5"
 
+want_version="lmhtml $(sed -n 's/^project(lmhtml VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+[ "$("$HOST" --version)" = "$want_version" ] || fail "--version prints $want_version"
+set +e; "$HOST" --version extra >/dev/null 2>&1; code=$?; set -e
+[ "$code" = 2 ] || fail "--version with an extra argument exits 2 (got $code)"
+ok "--version prints exactly '$want_version' (lmscript @latest reads it)"
 "$HOST" --dsl-schema --json >"$WORK/embedded-schema.json" || fail "embedded schema print"
 cmp schema/lmhtml.dsl.json "$WORK/embedded-schema.json" || fail "embedded schema differs from source bytes"
 ok "--dsl-schema --json prints byte-identical embedded schema bytes"

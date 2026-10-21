@@ -141,6 +141,12 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: tag matches lmhtml --version (lmscript @latest compares them)
+        run: |
+          chmod +x dist/lmhtml-linux-x64
+          got="$(dist/lmhtml-linux-x64 --version)"
+          test "$got" = "lmhtml ${GITHUB_REF_NAME#v}" || { echo "::error::tag $GITHUB_REF_NAME but binary says '$got' (bump project VERSION in CMakeLists.txt)"; exit 1; }
+
       - name: esbuild-style npm package layout (not published)
         run: scripts/npm-layout.sh dist npm-packages "${GITHUB_REF_NAME#v}"
 

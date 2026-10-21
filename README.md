@@ -39,6 +39,7 @@ build/lmhtml --dsl build/check-links.dslb
 
 CLI contract:
 
+- `lmhtml --version` — `lmhtml X.Y.Z`, the CMake project version; a release tag must be `vX.Y.Z` (CI checks it; lmscript `install="github:lmctl-ai/lmhtml@latest"` compares the two)
 - `lmhtml --dsl-schema` — compact human/LLM summary of contexts, functions, types
 - `lmhtml --dsl-schema --json` — the embedded schema bytes (compiler input)
 - `lmhtml --dsl-signatures` — canonical registry signatures (parity checks)

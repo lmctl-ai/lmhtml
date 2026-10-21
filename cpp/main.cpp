@@ -1231,11 +1231,16 @@ int main(int argc, char **argv) {
   dslvm::Registry reg;
   register_host(reg, host);
   const std::string usage =
-      "usage: lmhtml --dsl-schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n"
+      "usage: lmhtml --version | --dsl-schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n"
       "       lmhtml lint [--stats] [--json] [--config FILE] [--compare BEFORE] PATHS | md-lint PATHS\n"
       "       lmhtml normalize [--check] PATHS | clean URL-or-file [--base URL] [--markdown] [--check]\n"
       "       lmhtml md2html IN.md [OUT.html] [--template FILE] [--allow-html]\n"
       "       lmhtml index DIR [--order FILE] [--check] | mdcheck DIR | site DIR OUT [--template FILE]\n";
+  // "lmhtml X.Y.Z": lmscript install="github:...@latest" compares this with the release tag.
+  if (argc == 2 && std::string(argv[1]) == "--version") {
+    std::cout << "lmhtml " LMHTML_VERSION "\n";
+    return std::cout ? 0 : 4;
+  }
   if (argc >= 2 && std::string(argv[1]) == "--dsl-schema") {
     if (argc == 2) {
       print_schema_summary(reg);
