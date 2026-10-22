@@ -24,10 +24,10 @@
 | ![Normalized structural differences between two HTML pages](examples/renders/diff-pages.png) | ![Verification report after rewriting shared navigation across pages](examples/renders/rewrite-nav.png) |
 | Separates real page changes from formatting noise. [Source](examples/diff-pages.lms) · [example book](https://lmctl.com/tools/lmhtml/examples/diff-pages.html) | Applies a common navigation update, then checks convergence. [Source](examples/rewrite-nav.lms) · [example book](https://lmctl.com/tools/lmhtml/examples/rewrite-nav.html) |
 
-| Shared template extraction |  |
-| --- | --- |
-| ![Markup shared across five pages, extracted as a reusable template](examples/renders/make-template.png) |  |
-| Finds repeated page structure and writes template slots. [Source](examples/make-template.lms) · [example book](https://lmctl.com/tools/lmhtml/examples/make-template.html) |  |
+| Shared template extraction |
+| --- |
+| ![Markup shared across five pages, extracted as a reusable template](examples/renders/make-template.png) |
+| Finds repeated page structure and writes template slots. [Source](examples/make-template.lms) · [example book](https://lmctl.com/tools/lmhtml/examples/make-template.html) |
 
 ## How it works
 
@@ -54,7 +54,7 @@ For a team review, run `lmctl autorun lmhtml_trio` instead; both names resolve t
 ## Learn and download
 
 - [lmhtml book](https://lmctl.com/tools/lmhtml/) · [get started](https://lmctl.com/tools/lmhtml/get_started.html) · [API guide](https://lmctl.com/tools/lmhtml/guide.html)
-- [LMScript DSL](https://lmctl.com/tools/lmscript/skill.html) · [LLM API guide](docs/LLM_GUIDE.md) · [releases](https://github.com/lmctl-ai/lmhtml/releases)
+- [LMScript DSL](https://lmctl.com/tools/lmscript/skill.html) · [DSL schema](schema/lmhtml.dsl.json) · [releases](https://github.com/lmctl-ai/lmhtml/releases)
 
 ## Regenerate the README artwork
 
