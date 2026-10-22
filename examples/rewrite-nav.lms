@@ -1,18 +1,23 @@
+mkdir("build/example-rewrite");
+for (i in range(0, 5)) {
+  let n = str(i + 1);
+  write_file("build/example-rewrite/p" + n + ".html", "<!doctype html><html><head><title>Example</title></head><body><header><h1>Example site</h1></header><nav class=\"old-nav\"><a href=\"old.html\">Old navigation</a></nav><main><h2>Page " + n + "</h2><p>Body " + n + "</p></main><footer><p>Old footer</p></footer></body></html>");
+}
 p = _dsl_ schema="../schema/lmhtml.dsl.json";
-let pages = html.load_dir("tests/fixtures/tpl");
-let nav_html = "<nav class=\"site-nav\"><a href=\"p1.html\">P1</a><a href=\"p2.html\">P2</a><a href=\"p3.html\">P3</a></nav>";
-let footer_html = "<footer class=\"site-footer\"><span>Copyright</span><span>Legal</span></footer>";
+let pages = html.load_dir("build/example-rewrite");
+let nav_html = "<nav class=\"site-nav\"><a href=\"index.html\">Home</a><a href=\"about.html\">About</a></nav>";
+let footer_html = "<footer class=\"site-footer\"><p>Example footer</p></footer>";
 for (i in range(0, pages.len())) {
   let page = pages.at(i);
-  page.select("nav.site-nav").at(0).replace_with(nav_html);
+  page.select("nav").at(0).replace_with(nav_html);
   page.select("footer").at(0).replace_with(footer_html);
-  html.save(page, "build/rewritten/p" + str(i) + ".html");
+  html.save(page, "build/rewritten/p" + str(i + 1) + ".html");
 }
-let first = html.load("build/rewritten/p0.html");
-let n3 = html.diff(first, html.load("build/rewritten/p3.html"));
-let n4 = html.diff(first, html.load("build/rewritten/p4.html"));
-report.add("converged", "p0-vs-p3", 0, str(n3) + " differences after rewrite");
-report.add("converged", "p0-vs-p4", 0, str(n4) + " differences after rewrite");
+let first = html.load("build/rewritten/p1.html");
+let n3 = html.diff(first, html.load("build/rewritten/p4.html"));
+let n4 = html.diff(first, html.load("build/rewritten/p5.html"));
+report.add("converged", "p1-vs-p4", 0, str(n3) + " differences after rewrite");
+report.add("converged", "p1-vs-p5", 0, str(n4) + " differences after rewrite");
 report.write_text("build/rewrite-report.txt");
 end _dsl_
 savedsl(p, "build/rewrite-nav.dslb");

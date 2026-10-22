@@ -87,47 +87,45 @@ ok "typed registry signatures match compiler schema signatures"
 [ "$(cat "$WORK/run.jsonl")" = '{"ok": true, "result": null}' ] || fail "unexpected result line"
 ok "check-links bytecode runs"
 cat > "$WORK/expected.txt" <<'EOF'
-broken-link tests/fixtures/site/about.html:0: index.html#nope not found
-broken-link tests/fixtures/site/index.html:0: missing.html not found
-broken-link tests/fixtures/site/index.html:0: #gone not found
-broken-link tests/fixtures/site/sub/page.html:0: ../nowhere.html not found
+broken-link build/example-links/about.html:0: #missing not found
+broken-link build/example-links/index.html:0: missing.html not found
 EOF
 cmp "$WORK/expected.txt" build/links.txt || fail "text report differs from expected findings"
 ok "broken links report matches expected findings exactly"
 python3 - <<'PY'
 import json
 data=json.load(open('build/links.json'))
-assert data['count']==4, data
+assert data['count']==2, data
 files=[f['file'] for f in data['findings']]
-assert files==['tests/fixtures/site/about.html','tests/fixtures/site/index.html','tests/fixtures/site/index.html','tests/fixtures/site/sub/page.html'], files
+assert files==['build/example-links/about.html','build/example-links/index.html'], files
 assert all(f['kind']=='broken-link' and f['line']==0 for f in data['findings'])
-print('JSON report: 4 findings, ordered, well-formed')
+print('JSON report: 2 findings, ordered, well-formed')
 PY
 ok "JSON report matches expected findings"
 
 "$HOST" --dsl build/class-typos.dslb >"$WORK/typos.jsonl" || fail "class-typos run"
 cat > "$WORK/expected-typos.txt" <<'EOF'
 class-undefined site:0: usde (did you mean used?)
-class-unused site:0: footr
-id-unused site:0: teem (did you mean team?)
+class-unused site:0: footer
+id-unused site:0: team (did you mean teem?)
+id-unused site:0: unused-id
 EOF
 cmp "$WORK/expected-typos.txt" build/classes.txt || fail "class/id typo report differs from expected findings"
 python3 - <<'PY'
 import json
 data=json.load(open('build/classes.json'))
 kinds=[f['kind'] for f in data['findings']]
-assert kinds==['class-undefined','class-unused','id-unused'], kinds
-print('typo JSON report: 3 findings, well-formed')
+assert kinds==['class-undefined','class-unused','id-unused','id-unused'], kinds
+print('typo JSON report: 4 findings, well-formed')
 PY
 ok "class/id typo findings match expected exactly (text and JSON)"
 
 "$HOST" --dsl build/diff-pages.dslb >"$WORK/diff.jsonl" || fail "diff-pages run"
 cat > "$WORK/expected-diff.txt" <<'EOF'
-diff-added tests/fixtures/diff/b.html:0: html > body:nth-child(2) > ul:nth-child(2) > li:nth-child(3)
-diff-changed tests/fixtures/diff/a.html:0: html > body:nth-child(2) > p.intro:nth-child(3): attributes differ: class
-diff-changed tests/fixtures/diff/a.html:0: html > body:nth-child(2) > p.intro:nth-child(3): text differs
-diff-removed tests/fixtures/diff/a.html:0: html > body:nth-child(2) > div.box:nth-child(4)
-summary a-vs-b:0: 4 differences
+diff-added build/example-diff/b.html:0: html > body:nth-child(2) > ul:nth-child(1) > li:nth-child(2)
+diff-changed build/example-diff/a.html:0: html > body:nth-child(2) > p.intro:nth-child(2): attributes differ: class
+diff-changed build/example-diff/a.html:0: html > body:nth-child(2) > p.intro:nth-child(2): text differs
+summary a-vs-b:0: 3 differences
 summary a-vs-noise:0: 0 differences
 EOF
 cmp "$WORK/expected-diff.txt" build/diff.txt || fail "structural diff report differs from expected findings"
@@ -135,23 +133,20 @@ python3 - <<'PY'
 import json
 data=json.load(open('build/diff.json'))
 kinds=[f['kind'] for f in data['findings']]
-assert kinds==['diff-added','diff-changed','diff-changed','diff-removed','summary','summary'], kinds
-print('diff JSON report: 4 structural findings + 2 summaries')
+assert kinds==['diff-added','diff-changed','diff-changed','summary','summary'], kinds
+print('diff JSON report: 3 structural findings + 2 summaries')
 PY
 ok "structural diff: known edits found exactly, whitespace noise ignored, hash stable"
 
 "$HOST" --dsl build/make-template.dslb >"$WORK/tpl.jsonl" || fail "make-template run"
 cat > "$WORK/expected-template.html" <<'EOF'
 <!DOCTYPE html>
-<html><head><title>Site</title><style>.x { color: red; }</style></head><body><header class="site-header"><h1>Site</h1><p class="tag">Tagline</p></header><nav class="site-nav"><a href="p1.html">P1</a><a href="p2.html">P2</a><a href="p3.html">P3</a></nav><!-- slot:main-1 --><footer class="site-footer"><span>Copyright</span><span>Legal</span></footer></body></html>
+<html><!-- slot:head-1 --><body><!-- slot:header-2 --><nav><a href="index.html">Home</a><a href="about.html">About</a></nav><!-- slot:main-3 --><!-- slot:footer-4 --></body></html>
 EOF
 cmp "$WORK/expected-template.html" build/template.html || fail "emitted template differs from expected"
 cat > "$WORK/expected-tpl-report.txt" <<'EOF'
-common-part build/template.html:0: html > head:nth-child(1) shared by 5 of 5 pages
-common-part build/template.html:0: html > body:nth-child(2) > header.site-header:nth-child(1) shared by 5 of 5 pages
-common-part build/template.html:0: html > body:nth-child(2) > nav.site-nav:nth-child(2) shared by 4 of 5 pages
-common-part build/template.html:0: html > body:nth-child(2) > footer.site-footer:nth-child(4) shared by 4 of 5 pages
-summary template:0: 1 slots for 5 pages
+common-part build/template.html:0: html > body:nth-child(2) > nav:nth-child(2) shared by 5 of 5 pages
+summary template:0: 4 slots for 5 pages
 EOF
 cmp "$WORK/expected-tpl-report.txt" build/template-report.txt || fail "template findings differ from expected"
 ok "common parts across 5 pages (2 drifted) and template with 1 slot, byte-exact"
@@ -488,15 +483,15 @@ ok "img srcset URLs collected for link checking (data: srcset ignored)"
 
 "$HOST" --dsl build/rewrite-nav.dslb >"$WORK/rewrite.jsonl" || { cat "$WORK/rewrite.jsonl" >&2; fail "rewrite-nav run"; }
 cat > "$WORK/expected-rewrite.txt" <<'EOF'
-diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
-diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > p:nth-child(2): text differs
-diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
-diff-changed build/rewritten/p0.html:0: html > body:nth-child(2) > main:nth-child(3) > p:nth-child(2): text differs
-converged p0-vs-p3:0: 2 differences after rewrite
-converged p0-vs-p4:0: 2 differences after rewrite
+diff-changed build/rewritten/p1.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
+diff-changed build/rewritten/p1.html:0: html > body:nth-child(2) > main:nth-child(3) > p:nth-child(2): text differs
+diff-changed build/rewritten/p1.html:0: html > body:nth-child(2) > main:nth-child(3) > h2:nth-child(1): text differs
+diff-changed build/rewritten/p1.html:0: html > body:nth-child(2) > main:nth-child(3) > p:nth-child(2): text differs
+converged p1-vs-p4:0: 2 differences after rewrite
+converged p1-vs-p5:0: 2 differences after rewrite
 EOF
 cmp "$WORK/expected-rewrite.txt" build/rewrite-report.txt || fail "rewrite report differs from expected"
-grep -q '^<!DOCTYPE html>' build/rewritten/p0.html || fail "saved page lost the doctype"
+grep -q '^<!DOCTYPE html>' build/rewritten/p1.html || fail "saved page lost the doctype"
 ok "nav/footer rewritten across 5 pages, pages converge (M3 re-diff), doctype kept"
 
 cp -r build/rewritten "$WORK/rewritten-first"

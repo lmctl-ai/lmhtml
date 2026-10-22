@@ -1,6 +1,8 @@
+mkdir("build/example-classes");
+write_file("build/example-classes/index.html", "<!doctype html><html><head><style>.nav {} .used {} .footer {} #team {} #unused-id {}</style></head><body><nav class=\"nav\">Menu</nav><p class=\"used usde\" id=\"teem\">Text</p></body></html>");
 p = _dsl_ schema="../schema/lmhtml.dsl.json";
 # site-wide sets in one call each; policy: JS-hook class patterns are ignored
-let pages = html.load_dir("tests/fixtures/site");
+let pages = html.load_dir("build/example-classes");
 let used_all = pages.classes_used();
 let defined_all = pages.css_classes();
 let missing = str_difference(used_all, defined_all);

@@ -1,5 +1,9 @@
+mkdir("build/example-links/sub");
+write_file("build/example-links/index.html", "<!doctype html><html><body><a href=\"about.html\">About</a><a href=\"missing.html\">Missing</a></body></html>");
+write_file("build/example-links/about.html", "<!doctype html><html><body><h1 id=\"team\">Team</h1><a href=\"sub/page.html\">Sub page</a><a href=\"#missing\">Missing anchor</a></body></html>");
+write_file("build/example-links/sub/page.html", "<!doctype html><html><body><a href=\"../index.html\">Home</a></body></html>");
 p = _dsl_ schema="../schema/lmhtml.dsl.json";
-let pages = html.load_dir("tests/fixtures/site");
+let pages = html.load_dir("build/example-links");
 for (i in range(0, pages.len())) {
   let page = pages.at(i);
   let links = page.links();
