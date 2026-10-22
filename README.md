@@ -24,6 +24,11 @@
 | ![Normalized structural differences between two HTML pages](examples/renders/diff-pages.png) | ![Verification report after rewriting shared navigation across pages](examples/renders/rewrite-nav.png) |
 | Separates real page changes from formatting noise. [Source](examples/diff-pages.lms) · [example book](https://lmctl.com/tools/lmhtml/examples/diff-pages.html) | Applies a common navigation update, then checks convergence. [Source](examples/rewrite-nav.lms) · [example book](https://lmctl.com/tools/lmhtml/examples/rewrite-nav.html) |
 
+| Shared template extraction |  |
+| --- | --- |
+| ![Markup shared across five pages, extracted as a reusable template](examples/renders/make-template.png) |  |
+| Finds repeated page structure and writes template slots. [Source](examples/make-template.lms) · [example book](https://lmctl.com/tools/lmhtml/examples/make-template.html) |  |
+
 ## How it works
 
 This diagram is rendered by lmdraw from [architecture-light.lms](docs/readme/architecture-light.lms) and [architecture-dark.lms](docs/readme/architecture-dark.lms). It shows the real compiler, schema, bytecode, host and page-file flow.
