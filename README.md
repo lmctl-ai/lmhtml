@@ -41,10 +41,10 @@ This diagram is rendered by lmdraw from [architecture-light.lms](docs/readme/arc
 ```sh
 npm install -g @lmctl-ai/lmctl
 lmctl init
-lmctl autorun https://lmctl.com/tools/lmhtml/lmhtml_solo.lms
+lmctl autorun lmhtml_solo
 ```
 
-For a team review, run the [trio script](https://lmctl.com/tools/lmhtml/lmhtml_trio.lms) instead. The [get started guide](https://lmctl.com/tools/lmhtml/get_started.html) explains provider setup and the [release page](https://github.com/lmctl-ai/lmhtml/releases) has native binaries.
+For a team review, run `lmctl autorun lmhtml_trio` instead; both names resolve to the published solo and trio scripts. The [get started guide](https://lmctl.com/tools/lmhtml/get_started.html) explains provider setup and the [release page](https://github.com/lmctl-ai/lmhtml/releases) has native binaries.
 
 ## Learn and download
 
