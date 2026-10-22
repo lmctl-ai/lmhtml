@@ -1,0 +1,50 @@
+out = ARGV.len() > 0 ? ARGV[0] : "build/readme-hero-dark.dslb";
+p = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(1440, 600, "#101a23");
+
+scene.text(72.0, 74.0, 18.0, "LMHTML  /  STRUCTURE YOU CAN ACT ON", "#8bd8c8").set_attr("font-weight", "700");
+scene.text(72.0, 158.0, 52.0, "Find the pattern.", "#f2f6f7").set_attr("font-weight", "700");
+scene.text(72.0, 218.0, 52.0, "Rewrite it once.", "#f1a27c").set_attr("font-weight", "700");
+scene.text(74.0, 263.0, 21.0, "Compare real pages, update shared markup, and verify the result.", "#c1d0d6");
+
+scene.rect(54.0, 306.0, 578.0, 232.0, "#182a38").set_attr("stroke", "#36505e").set_attr("stroke-width", "2");
+scene.rect(808.0, 306.0, 578.0, 232.0, "#182a38").set_attr("stroke", "#36505e").set_attr("stroke-width", "2");
+scene.text(82.0, 342.0, 15.0, "BEFORE  /  THREE PAGES, ONE STALE NAV", "#f1a27c").set_attr("font-weight", "700");
+scene.text(836.0, 342.0, 15.0, "AFTER  /  SHARED NAV UPDATED AND VERIFIED", "#8bd8c8").set_attr("font-weight", "700");
+
+for (i in range(0, 3)) {
+  let x = 86.0 + float(i) * 176.0;
+  scene.rect(x, 366.0, 150.0, 144.0, "#203443").set_attr("stroke", "#46616f");
+  scene.rect(x, 366.0, 150.0, 19.0, "#334a58");
+  scene.circle(x + 14.0, 375.0, 3.0, "#9fb1b6");
+  scene.circle(x + 25.0, 375.0, 3.0, "#9fb1b6");
+  scene.rect(x + 12.0, 398.0, 126.0, 24.0, "#a65443");
+  scene.text(x + 75.0, 415.0, 11.0, "OLD NAV", "#ffffff").set_attr("text-anchor", "middle");
+  scene.line(x + 16.0, 447.0, x + 128.0, 447.0, "#607580", 3.0);
+  scene.line(x + 16.0, 461.0, x + 111.0, 461.0, "#425b68", 3.0);
+  scene.line(x + 16.0, 475.0, x + 120.0, 475.0, "#425b68", 3.0);
+
+  let after_x = 840.0 + float(i) * 176.0;
+  scene.rect(after_x, 366.0, 150.0, 144.0, "#203443").set_attr("stroke", "#46616f");
+  scene.rect(after_x, 366.0, 150.0, 19.0, "#334a58");
+  scene.circle(after_x + 14.0, 375.0, 3.0, "#9fb1b6");
+  scene.circle(after_x + 25.0, 375.0, 3.0, "#9fb1b6");
+  scene.rect(after_x + 12.0, 398.0, 126.0, 24.0, "#288f80");
+  scene.text(after_x + 75.0, 415.0, 11.0, "NEW NAV", "#ffffff").set_attr("text-anchor", "middle");
+  scene.line(after_x + 16.0, 447.0, after_x + 128.0, 447.0, "#607580", 3.0);
+  scene.line(after_x + 16.0, 461.0, after_x + 111.0, 461.0, "#425b68", 3.0);
+  scene.line(after_x + 16.0, 475.0, after_x + 120.0, 475.0, "#425b68", 3.0);
+}
+
+scene.rect(650.0, 385.0, 132.0, 84.0, "#e5f3f0");
+scene.text(716.0, 419.0, 20.0, "lmhtml", "#142b39").set_attr("text-anchor", "middle").set_attr("font-weight", "700");
+scene.text(716.0, 448.0, 12.0, "find · rewrite · verify", "#24796f").set_attr("text-anchor", "middle");
+let left = scene.line(632.0, 427.0, 644.0, 427.0, "#f1a27c", 3.0);
+left.set_attr("marker-end", "arrow");
+let right = scene.line(788.0, 427.0, 800.0, 427.0, "#8bd8c8", 3.0);
+right.set_attr("marker-end", "arrow");
+
+scene.text(72.0, 574.0, 14.0, "HTML in. Clear findings and deliberate edits out.", "#9db2bc");
+scene.render_png("build/rendered/readme-hero-dark.png", 1440, 600, 1);
+end _dsl_
+savedsl(p, out);

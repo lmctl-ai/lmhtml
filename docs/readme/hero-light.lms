@@ -1,0 +1,51 @@
+out = ARGV.len() > 0 ? ARGV[0] : "build/readme-hero-light.dslb";
+p = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(1440, 600, "#f4f3ee");
+
+scene.text(72.0, 74.0, 18.0, "LMHTML  /  STRUCTURE YOU CAN ACT ON", "#24796f").set_attr("font-weight", "700");
+scene.text(72.0, 158.0, 52.0, "Find the pattern.", "#142b39").set_attr("font-weight", "700");
+scene.text(72.0, 218.0, 52.0, "Rewrite it once.", "#a34f2a").set_attr("font-weight", "700");
+scene.text(74.0, 263.0, 21.0, "Compare real pages, update shared markup, and verify the result.", "#455c68");
+
+scene.rect(54.0, 306.0, 578.0, 232.0, "#ffffff").set_attr("stroke", "#d9d9d0").set_attr("stroke-width", "2");
+scene.rect(808.0, 306.0, 578.0, 232.0, "#ffffff").set_attr("stroke", "#d9d9d0").set_attr("stroke-width", "2");
+scene.text(82.0, 342.0, 15.0, "BEFORE  /  THREE PAGES, ONE STALE NAV", "#9b543f").set_attr("font-weight", "700");
+scene.text(836.0, 342.0, 15.0, "AFTER  /  SHARED NAV UPDATED AND VERIFIED", "#24796f").set_attr("font-weight", "700");
+
+# Three page cards show repeated source markup before and after a shared rewrite.
+for (i in range(0, 3)) {
+  let x = 86.0 + float(i) * 176.0;
+  scene.rect(x, 366.0, 150.0, 144.0, "#f5f7f6").set_attr("stroke", "#cfd9d6");
+  scene.rect(x, 366.0, 150.0, 19.0, "#dce4e1");
+  scene.circle(x + 14.0, 375.0, 3.0, "#8b9a98");
+  scene.circle(x + 25.0, 375.0, 3.0, "#8b9a98");
+  scene.rect(x + 12.0, 398.0, 126.0, 24.0, "#be6952");
+  scene.text(x + 75.0, 415.0, 11.0, "OLD NAV", "#ffffff").set_attr("text-anchor", "middle");
+  scene.line(x + 16.0, 447.0, x + 128.0, 447.0, "#c2ccc9", 3.0);
+  scene.line(x + 16.0, 461.0, x + 111.0, 461.0, "#d5ddda", 3.0);
+  scene.line(x + 16.0, 475.0, x + 120.0, 475.0, "#d5ddda", 3.0);
+
+  let after_x = 840.0 + float(i) * 176.0;
+  scene.rect(after_x, 366.0, 150.0, 144.0, "#f5f7f6").set_attr("stroke", "#cfd9d6");
+  scene.rect(after_x, 366.0, 150.0, 19.0, "#dce4e1");
+  scene.circle(after_x + 14.0, 375.0, 3.0, "#8b9a98");
+  scene.circle(after_x + 25.0, 375.0, 3.0, "#8b9a98");
+  scene.rect(after_x + 12.0, 398.0, 126.0, 24.0, "#258c7d");
+  scene.text(after_x + 75.0, 415.0, 11.0, "NEW NAV", "#ffffff").set_attr("text-anchor", "middle");
+  scene.line(after_x + 16.0, 447.0, after_x + 128.0, 447.0, "#c2ccc9", 3.0);
+  scene.line(after_x + 16.0, 461.0, after_x + 111.0, 461.0, "#d5ddda", 3.0);
+  scene.line(after_x + 16.0, 475.0, after_x + 120.0, 475.0, "#d5ddda", 3.0);
+}
+
+scene.rect(650.0, 385.0, 132.0, 84.0, "#142b39");
+scene.text(716.0, 419.0, 20.0, "lmhtml", "#ffffff").set_attr("text-anchor", "middle").set_attr("font-weight", "700");
+scene.text(716.0, 448.0, 12.0, "find · rewrite · verify", "#a8ddd2").set_attr("text-anchor", "middle");
+let left = scene.line(632.0, 427.0, 644.0, 427.0, "#a34f2a", 3.0);
+left.set_attr("marker-end", "arrow");
+let right = scene.line(788.0, 427.0, 800.0, 427.0, "#258c7d", 3.0);
+right.set_attr("marker-end", "arrow");
+
+scene.text(72.0, 574.0, 14.0, "HTML in. Clear findings and deliberate edits out.", "#617782");
+scene.render_png("build/rendered/readme-hero-light.png", 1440, 600, 1);
+end _dsl_
+savedsl(p, out);
