@@ -1,4 +1,5 @@
 mkdir("build/example-links/sub");
+out = ARGV.len() > 0 ? ARGV[0] : "build/check-links.dslb";
 write_file("build/example-links/index.html", "<!doctype html><html><body><a href=\"about.html\">About</a><a href=\"missing.html\">Missing</a></body></html>");
 write_file("build/example-links/about.html", "<!doctype html><html><body><h1 id=\"team\">Team</h1><a href=\"sub/page.html\">Sub page</a><a href=\"#missing\">Missing anchor</a></body></html>");
 write_file("build/example-links/sub/page.html", "<!doctype html><html><body><a href=\"../index.html\">Home</a></body></html>");
@@ -21,4 +22,4 @@ for (i in range(0, pages.len())) {
 report.write_text("build/links.txt");
 report.write_json("build/links.json");
 end _dsl_
-savedsl(p, "build/check-links.dslb");
+savedsl(p, out);

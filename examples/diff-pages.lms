@@ -1,4 +1,5 @@
 mkdir("build/example-diff");
+out = ARGV.len() > 0 ? ARGV[0] : "build/diff-pages.dslb";
 write_file("build/example-diff/a.html", "<!doctype html><html><body><ul><li>one</li></ul><p class=\"intro\">Hello world</p></body></html>");
 write_file("build/example-diff/b.html", "<!doctype html><html><body><ul><li>one</li><li>two</li></ul><p class=\"intro wide\">Hello brave world</p></body></html>");
 write_file("build/example-diff/a-noise.html", "<!doctype html>\n<!-- comment -->\n<html><body><ul><li>one</li></ul><p   class=\"intro\">Hello   world</p></body></html>");
@@ -16,4 +17,4 @@ if (h1 != h2) { report.add("bug", "hash", 0, "whitespace noise changed hash"); }
 report.write_text("build/diff.txt");
 report.write_json("build/diff.json");
 end _dsl_
-savedsl(p, "build/diff-pages.dslb");
+savedsl(p, out);

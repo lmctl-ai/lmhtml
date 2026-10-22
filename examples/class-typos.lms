@@ -1,4 +1,5 @@
 mkdir("build/example-classes");
+out = ARGV.len() > 0 ? ARGV[0] : "build/class-typos.dslb";
 write_file("build/example-classes/index.html", "<!doctype html><html><head><style>.nav {} .used {} .footer {} #team {} #unused-id {}</style></head><body><nav class=\"nav\">Menu</nav><p class=\"used usde\" id=\"teem\">Text</p></body></html>");
 p = _dsl_ schema="../schema/lmhtml.dsl.json";
 # site-wide sets in one call each; policy: JS-hook class patterns are ignored
@@ -29,4 +30,4 @@ for (m in range(0, ids_unused.len())) {
 report.write_text("build/classes.txt");
 report.write_json("build/classes.json");
 end _dsl_
-savedsl(p, "build/class-typos.dslb");
+savedsl(p, out);
