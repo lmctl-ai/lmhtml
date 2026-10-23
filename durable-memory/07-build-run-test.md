@@ -28,7 +28,10 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 `./test.sh` → **PASS: 56 checks** (release and sanitize alike):
 
 1. sdk.lock + lexbor.lock pin verification.
-2. check-links.lms compiles as bytecode v5 via the probed compiler.
+2. All user examples compile with cli and install declarations as bytecode v5.
+   The test harness puts its freshly built lmhtml executable first on PATH so
+   install= selects that matching local binary. One explicit compatibility
+   test retains the legacy schema= declaration.
 3. `--dsl-schema --json` byte-identical to `schema/lmhtml.dsl.json`;
    `--dsl-schema` summary mechanically lists all 37 registry signatures;
    `--dsl-signatures` parity diff compiler vs host.

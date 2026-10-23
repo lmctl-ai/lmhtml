@@ -4,7 +4,7 @@ for (i in range(0, 5)) {
   let n = str(i + 1);
   write_file("build/example-rewrite/p" + n + ".html", "<!doctype html><html><head><title>Example</title></head><body><header><h1>Example site</h1></header><nav class=\"old-nav\"><a href=\"old.html\">Old navigation</a></nav><main><h2>Page " + n + "</h2><p>Body " + n + "</p></main><footer><p>Old footer</p></footer></body></html>");
 }
-p = _dsl_ schema="../schema/lmhtml.dsl.json";
+p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 let pages = html.load_dir("build/example-rewrite");
 let nav_html = "<nav class=\"site-nav\"><a href=\"index.html\">Home</a><a href=\"about.html\">About</a></nav>";
 let footer_html = "<footer class=\"site-footer\"><p>Example footer</p></footer>";

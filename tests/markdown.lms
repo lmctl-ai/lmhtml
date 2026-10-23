@@ -1,4 +1,4 @@
-p = _dsl_ schema="../schema/lmhtml.dsl.json";
+p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 fn equal(markup: string, expected: string) -> void {
   let doc = html.parse("<main>" + markup + "</main>");
   let first = doc.markdown("main");

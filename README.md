@@ -49,7 +49,7 @@ lmctl init
 lmctl autorun lmhtml_solo
 ```
 
-For a team review, run `lmctl autorun lmhtml_trio` instead; both names resolve to the published solo and trio scripts. The [get started guide](https://lmctl.com/tools/lmhtml/get_started.html) explains provider setup and the [release page](https://github.com/lmctl-ai/lmhtml/releases) has native binaries.
+For a team review, run `lmctl autorun lmhtml_trio` instead; both names resolve to the published solo and trio scripts. The [get started guide](https://lmctl.com/tools/lmhtml/get_started.html) explains provider setup and the [release page](https://github.com/lmctl-ai/lmhtml/releases) has native binaries. Custom tool scripts need lmscript 0.2.369 or newer; declare cli="lmhtml" and install="github:lmctl-ai/lmhtml@latest" on the _dsl_ line so lmscript fetches the host schema automatically.
 
 ## Learn and download
 

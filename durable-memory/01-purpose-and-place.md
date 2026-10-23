@@ -5,8 +5,11 @@
 **lmhtml is a single self-contained native CLI for bulk HTML work**: checking
 broken links, catching CSS class/id typos, structural diff of pages, extracting
 common parts into a template, and rewriting shared parts across many pages.
-It is scriptable: a user writes lmscript `_dsl_` chunks against the one
-embedded schema; the host executes the bytecode and owns all state.
+It is scriptable: a user writes lmscript _dsl_ chunks and the host executes
+the bytecode and owns all state. Tool users declare cli="lmhtml" and
+install="github:lmctl-ai/lmhtml@latest"; lmscript obtains the schema from the
+installed host. Schema-file input remains useful for SDK authors and
+compatibility tests.
 
 ## Place in the stack
 
@@ -16,7 +19,7 @@ embedded schema; the host executes the bytecode and owns all state.
   a single header `cpp/dslvm.hpp`, pinned by `sdk.lock` (repo/commit/sha256),
   exactly like lmcad. It executes `_dsl_` bytecode; it never parses HTML.
 - **lmscript**, published via npm as `@lmctl-ai/lmctl`, compiles `_dsl_` chunks
-  against `schema/lmhtml.dsl.json` into `.dslb` bytecode. Tests use the published compiler selected by `scripts/select-compiler.sh`. A source adapter is available for local compiler development when `LMSCRIPT_SOURCE` is set explicitly.
+  for the installed host into bytecode. Tool users need no schema file. Tests use the published compiler selected by scripts/select-compiler.sh; local compiler development may set LMSCRIPT_SOURCE explicitly.
 - **lmcad / lmor-dsl** are the sibling hosts whose conventions lmhtml copies:
   one binary, schema embedded at compile time, `--dsl` runs bytecode files,
   `--dsl-schema` prints the embedded schema, `--dsl-signatures` for parity checks,

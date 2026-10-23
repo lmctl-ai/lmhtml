@@ -3,7 +3,7 @@ out = ARGV.len() > 0 ? ARGV[0] : "build/diff-pages.dslb";
 write_file("build/example-diff/a.html", "<!doctype html><html><body><ul><li>one</li></ul><p class=\"intro\">Hello world</p></body></html>");
 write_file("build/example-diff/b.html", "<!doctype html><html><body><ul><li>one</li><li>two</li></ul><p class=\"intro wide\">Hello brave world</p></body></html>");
 write_file("build/example-diff/a-noise.html", "<!doctype html>\n<!-- comment -->\n<html><body><ul><li>one</li></ul><p   class=\"intro\">Hello   world</p></body></html>");
-p = _dsl_ schema="../schema/lmhtml.dsl.json";
+p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 let a = html.load("build/example-diff/a.html");
 let b = html.load("build/example-diff/b.html");
 let n = html.diff(a, b);

@@ -45,6 +45,10 @@ cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release ${CMAKE_EXTRA:+"$
 nice -n 19 cmake --build "$BUILD_DIR" -j2 >"$WORK/build.log" 2>&1 ||
   { tail -30 "$WORK/build.log" >&2; fail "cmake build ($BUILD_DIR)"; }
 ok "host build ($BUILD_DIR)"
+# install= prefers a matching host executable on PATH; put this test build first.
+LOCAL_HOST_DIR="$(cd "$BUILD_DIR" && pwd)"
+PATH="$LOCAL_HOST_DIR:$PATH"
+export PATH
 
 "$LMSCRIPT" examples/check-links.lms build/check-links.dslb >"$WORK/compile.log" || fail "check-links compile with $COMPILER_SOURCE"
 "$LMSCRIPT" examples/class-typos.lms build/class-typos.dslb >>"$WORK/compile.log" || fail "class-typos compile with $COMPILER_SOURCE"
@@ -160,11 +164,9 @@ ok "link check rerun is byte-identical (deterministic)"
 [ "$(wc -l < "$WORK/multi.jsonl" | tr -d ' ')" = 2 ] || fail "multiple bytecode files did not run in order"
 ok "multiple bytecode files run sequentially against one embedded schema"
 
-SCHEMA_PATH="$HERE/schema/lmhtml.dsl.json"
-case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) SCHEMA_PATH="$(cd "$HERE" && pwd -W | tr '\\' '/')/schema/lmhtml.dsl.json";; esac
 compile_chunk() { # name body
   cat > "$WORK/$1.lms" <<EOF2
-p = _dsl_ schema="$SCHEMA_PATH";
+p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 $2
 end _dsl_
 savedsl(p, "$WORK/$1.dslb");
@@ -719,6 +721,7 @@ fi
 "$LMSCRIPT" tests/audit.lms "$WORK/audit.dslb" "$WORK/audit.txt" || fail "audit compile"
 "$HOST" --dsl "$WORK/audit.dslb" >"$WORK/audit-run.txt" || { cat "$WORK/audit.txt"; fail "document audit"; }
 ok "source metadata, strict markup audit, attributes and node paths"
+# Backward compatibility: this one test still compiles with the legacy schema= form.
 cat > "$WORK/fail-report.lms" <<'EOF'
 p = _dsl_ schema="embedded-schema.json";
 report.add("test", "fixture.html", 0, "intentional finding");
@@ -748,7 +751,7 @@ def png(w,h):
 (root/'not.png').write_bytes(b'x'*33)
 PYPNG
 cat > "$WORK/png-size.lms" <<'EOF'
-p = _dsl_ schema="embedded-schema.json";
+p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 let size = html.png_size(${ARGV[1]});
 if (size.width() != 321 || size.height() != 123) { report.add("test", "png", 0, "wrong dimensions"); }
 report.fail_if_any();
