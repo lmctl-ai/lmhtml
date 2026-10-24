@@ -1,0 +1,7 @@
+# Shared string and collection catalogs
+
+The host uses the SDK string and collection registrations. Native HTML list producers allocate `dslvm::stdlib::StrList` snapshots through `Host::collections`, and set operations/suggestions consume their `.items` vectors. The former StrList len/at interface now exposes the SDK mutable superset: modifying a returned list changes only that snapshot, never the document, DOM, document list or node list. This preserves existing examples while sharing the common type. Domain-specific `str_difference`, `str_union`, `suggest` and UTF-8-aware `str_text_prefix` remain host operations.
+
+The common glob matcher is now the SDK implementation: class escapes and every scanned class entry count toward its 2^27 work cap. The bounded-failure message is `str_match: pattern exceeds the 2^27 work limit`. ASCII transforms, byte slicing and string bounds follow the SDK fragment. The old copied matcher/helpers and CMake-generated partial SDK header are removed; the pinned full SDK header supports the platform float parsers directly.
+
+`scripts/sync-sdk.sh` pins all VM/catalog header paths and SHA-256 values in `sdk.lock`, replacing the separate string catalog lock. The schema includes the fragments unchanged. Collection handles live for a chunk run; the stable arena resets between chunks. Other domain arenas and node/document lifetime checks retain their existing ownership.

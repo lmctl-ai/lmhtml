@@ -1,5 +1,6 @@
 #include <lexbor/dom/interfaces/document_type.h>
-#include "string_template.hpp"
+#include "stdlib/string.hpp"
+#include "stdlib/collections.hpp"
 #include "dslvm.hpp"
 #include "analyze.hpp"
 #include "html.hpp"
@@ -49,7 +50,7 @@ struct Host {
   std::vector<std::unique_ptr<ImageSize>> image_sizes;
   std::vector<std::unique_ptr<lmhtml::Document>> docs;
   std::vector<std::unique_ptr<std::vector<lxb_dom_node_t *>>> node_lists;
-  std::vector<std::unique_ptr<std::vector<std::string>>> str_lists;
+  dslvm::stdlib::Collections collections;
   std::vector<std::unique_ptr<std::vector<lmhtml::Document *>>> doc_lists;
   Report report;
   std::function<Value(const std::string &, const std::string &)> save;
@@ -61,6 +62,9 @@ struct Host {
   std::string root_of(const lmhtml::Document *doc) const {
     auto it = dir_roots.find(doc);
     return it == dir_roots.end() ? "." : it->second;
+  }
+  Value hold_strs(std::vector<std::string> values) {
+    return Value::object("StrList", collections.make_str_list(std::move(values)));
   }
   template <class T>
   Value hold(std::vector<std::unique_ptr<T>> &arena, const char *type, T value) {
@@ -270,7 +274,7 @@ std::string clean_url(const std::string &raw) {
   std::string url;
   for (size_t i = b; i < e; i++)
     if (raw[i] != '\t' && raw[i] != '\n' && raw[i] != '\r') url += raw[i];
-  std::string scheme = lmhtml::strlib::lower(lmhtml::url_scheme(url));
+  std::string scheme = dslvm::stdlib::str_lower(lmhtml::url_scheme(url));
   if (scheme.empty() || scheme == "http" || scheme == "https" || scheme == "file" ||
       scheme == "ws" || scheme == "wss" || scheme == "ftp")
     std::replace(url.begin(), url.end(), '\\', '/');
@@ -364,14 +368,14 @@ bool link_exists(Host &h, lmhtml::Document *doc, const std::string &url) {
 // directory), internal-asset (anything else). Existence stays link_exists.
 std::string link_kind(Host &h, lmhtml::Document *doc, const std::string &raw) {
   std::string url = clean_url(raw);
-  std::string scheme = lmhtml::strlib::lower(lmhtml::url_scheme(url));
+  std::string scheme = dslvm::stdlib::str_lower(lmhtml::url_scheme(url));
   if (!scheme.empty()) return scheme == "http" || scheme == "https" ? "external" : "special";
   // Same rules as link_exists: <base href> decides what "#x" points at.
   LinkTarget t = resolve_link(h, doc, url);
   if (t.external) return "external";
   if (t.same_page) return t.has_fragment ? "anchor" : "internal-page";
   if (t.outside_root) return "outside-root";
-  std::string file = lmhtml::strlib::lower(t.file);
+  std::string file = dslvm::stdlib::str_lower(t.file);
   std::string::size_type dot = file.rfind('.');
   std::string ext = dot == std::string::npos ? "" : file.substr(dot);
   if (ext == ".html" || ext == ".htm" || ext == ".md") return "internal-page";
@@ -608,11 +612,11 @@ std::string dir_pattern(const std::string &dir, const std::string &pattern, cons
 // directories (gitignore): "**/a.html" matches "a.html", "x/**/a.html"
 // matches "x/a.html".
 bool glob_path_match(const std::string &rel, const std::string &pat) {
-  if (lmhtml::strlib::match(rel, pat)) return true;
+  if (dslvm::stdlib::str_match(rel, pat)) return true;
   std::string collapsed = pat;
   while (collapsed.rfind("**/", 0) == 0) collapsed.erase(0, 3);
   for (size_t at; (at = collapsed.find("/**/")) != std::string::npos;) collapsed.replace(at, 4, "/");
-  return collapsed != pat && lmhtml::strlib::match(rel, collapsed);
+  return collapsed != pat && dslvm::stdlib::str_match(rel, collapsed);
 }
 
 void checked_method(dslvm::Registry &registry, const char *type, const char *name,
@@ -669,6 +673,8 @@ template <class L> Value wrap_lex(const char *who, L &&fn) {
 }
 
 void register_host(dslvm::Registry &r, Host &h) {
+  dslvm::stdlib::register_string(r);
+  dslvm::stdlib::register_collections(r, h.collections);
   r.context("html", "Html");
   r.context("report", "Report");
 
@@ -694,7 +700,7 @@ void register_host(dslvm::Registry &r, Host &h) {
       if (!range.end) throw dslvm::Error("source element has no explicit end tag: " + a[0].s);
       elements.push_back(doc->source.substr(range.begin, range.end - range.begin));
     }
-    return h.hold(h.str_lists, "StrList", std::move(elements));
+    return h.hold_strs(std::move(elements));
   });
   checked_method(r, "Doc", "source_inner", {"string"}, "string", [](void *p, Args &a) {
     return wrap_lex("Doc.source_inner", [&] { return Value::string(lmhtml::source_element(*doc_of(p, "Doc.source_inner"), a[0].s, true)); });
@@ -720,20 +726,20 @@ void register_host(dslvm::Registry &r, Host &h) {
     return Value::string(std::string(reinterpret_cast<const char *>(name), size));
   });
   checked_method(r, "Doc", "markup_errors", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold(h.str_lists, "StrList", doc_of(p, "Doc.markup_errors")->markup_errors);
+    return h.hold_strs(doc_of(p, "Doc.markup_errors")->markup_errors);
   });
   checked_method(r, "Node", "attributes", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold(h.str_lists, "StrList", lmhtml::attribute_names(node_of(p, "Node.attributes")));
+    return h.hold_strs(lmhtml::attribute_names(node_of(p, "Node.attributes")));
   });
   checked_method(r, "Node", "path", {}, "string", [](void *p, Args &) {
     return Value::string(lmhtml::node_path(node_of(p, "Node.path")));
   });
   checked_method(r, "Doc", "links", {}, "StrList", [&h](void *p, Args &) {
     auto *doc = doc_of(p, "Doc.links");
-    return h.hold(h.str_lists, "StrList", lmhtml::collect_links(*doc));
+    return h.hold_strs(lmhtml::collect_links(*doc));
   });
   checked_method(r, "Doc", "classes_used", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold(h.str_lists, "StrList", lmhtml::classes_used(*doc_of(p, "Doc.classes_used")));
+    return h.hold_strs(lmhtml::classes_used(*doc_of(p, "Doc.classes_used")));
   });
   // External stylesheets resolve like links: external/missing files skip.
   auto css_resolver = [&h](lmhtml::Document *doc) {
@@ -748,16 +754,16 @@ void register_host(dslvm::Registry &r, Host &h) {
     auto *doc = doc_of(p, "Doc.css_classes");
     std::vector<std::string> classes, ids;
     lmhtml::css_names(*doc, classes, ids, css_resolver(doc));
-    return h.hold(h.str_lists, "StrList", std::move(classes));
+    return h.hold_strs(std::move(classes));
   });
   checked_method(r, "Doc", "css_ids", {}, "StrList", [&h, css_resolver](void *p, Args &) {
     auto *doc = doc_of(p, "Doc.css_ids");
     std::vector<std::string> classes, ids;
     lmhtml::css_names(*doc, classes, ids, css_resolver(doc));
-    return h.hold(h.str_lists, "StrList", std::move(ids));
+    return h.hold_strs(std::move(ids));
   });
   checked_method(r, "Doc", "ids", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold(h.str_lists, "StrList", lmhtml::ids_used(*doc_of(p, "Doc.ids")));
+    return h.hold_strs(lmhtml::ids_used(*doc_of(p, "Doc.ids")));
   });
 
   checked_method(r, "Node", "tag", {}, "string", [](void *p, Args &) {
@@ -841,15 +847,6 @@ void register_host(dslvm::Registry &r, Host &h) {
       throw dslvm::Error("NodeList.at index out of range");
     return Value::object("Node", nodes[static_cast<size_t>(a[0].i)]);
   });
-  checked_method(r, "StrList", "len", {}, "int", [](void *p, Args &) {
-    return Value::integer(static_cast<int64_t>(self<std::vector<std::string>>(p)->size()));
-  });
-  checked_method(r, "StrList", "at", {"int"}, "string", [](void *p, Args &a) {
-    auto &items = *self<std::vector<std::string>>(p);
-    if (a[0].i < 0 || static_cast<uint64_t>(a[0].i) >= items.size())
-      throw dslvm::Error("StrList.at index out of range");
-    return Value::string(items[static_cast<size_t>(a[0].i)]);
-  });
   checked_method(r, "DocList", "len", {}, "int", [](void *p, Args &) {
     return Value::integer(static_cast<int64_t>(self<std::vector<lmhtml::Document *>>(p)->size()));
   });
@@ -873,7 +870,7 @@ void register_host(dslvm::Registry &r, Host &h) {
       }
       all.insert(names.begin(), names.end());
     }
-    return h.hold(h.str_lists, "StrList", std::vector<std::string>(all.begin(), all.end()));
+    return h.hold_strs(std::vector<std::string>(all.begin(), all.end()));
   };
   checked_method(r, "DocList", "classes_used", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 0); });
   checked_method(r, "DocList", "css_classes", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 1); });
@@ -1136,21 +1133,19 @@ void register_host(dslvm::Registry &r, Host &h) {
   });
 
   checked_function(r, "suggest", {"string", "StrList"}, "StrList", [&h](Args &a) {
-    auto &candidates = *self<std::vector<std::string>>(a[1].obj);
-    return h.hold(h.str_lists, "StrList", lmhtml::strlib::suggest(a[0].s, candidates));
+    auto &candidates = self<dslvm::stdlib::StrList>(a[1].obj)->items;
+    return h.hold_strs(lmhtml::strlib::suggest(a[0].s, candidates));
   });
   checked_function(r, "str_difference", {"StrList", "StrList"}, "StrList", [&h](Args &a) {
-    auto &incl = *self<std::vector<std::string>>(a[0].obj);
-    auto &excl = *self<std::vector<std::string>>(a[1].obj);
-    return h.hold(h.str_lists, "StrList", lmhtml::strlib::difference(incl, excl));
+    auto &incl = self<dslvm::stdlib::StrList>(a[0].obj)->items;
+    auto &excl = self<dslvm::stdlib::StrList>(a[1].obj)->items;
+    return h.hold_strs(lmhtml::strlib::difference(incl, excl));
   });
   checked_function(r, "str_union", {"StrList", "StrList"}, "StrList", [&h](Args &a) {
-    auto &left = *self<std::vector<std::string>>(a[0].obj);
-    auto &right = *self<std::vector<std::string>>(a[1].obj);
-    return h.hold(h.str_lists, "StrList", lmhtml::strlib::set_union(left, right));
+    auto &left = self<dslvm::stdlib::StrList>(a[0].obj)->items;
+    auto &right = self<dslvm::stdlib::StrList>(a[1].obj)->items;
+    return h.hold_strs(lmhtml::strlib::set_union(left, right));
   });
-  checked_function(r, "str_list", {}, "StrList",
-                   [&h](Args &) { return h.hold(h.str_lists, "StrList", std::vector<std::string>{}); });
   // Catalog operations are byte-oriented; excerpts need whole UTF-8 codepoints.
   checked_function(r, "str_text_prefix", {"string", "int"}, "string", [](Args &a) {
     const auto &text = a[0].s;
@@ -1166,29 +1161,7 @@ void register_host(dslvm::Registry &r, Host &h) {
     }
     return Value::string(text.substr(0, end));
   });
-  checked_function(r, "str_find", {"string", "string"}, "int", [](Args &a) {
-    return Value::integer(dslvm::stdlib::str_find(a[0].s, a[1].s));
-  });
-  checked_function(r, "str_replace", {"string", "string", "string"}, "string", [](Args &a) {
-    return Value::string(dslvm::stdlib::str_replace(a[0].s, a[1].s, a[2].s));
-  });
-  checked_function(r, "str_trim", {"string"}, "string", [](Args &a) {
-    return Value::string(dslvm::stdlib::str_trim(a[0].s));
-  });
-  checked_function(r, "str_starts_with", {"string", "string"}, "bool",
-                   [](Args &a) { return Value::boolean(lmhtml::strlib::starts_with(a[0].s, a[1].s)); });
-  checked_function(r, "str_ends_with", {"string", "string"}, "bool",
-                   [](Args &a) { return Value::boolean(lmhtml::strlib::ends_with(a[0].s, a[1].s)); });
-  checked_function(r, "str_contains", {"string", "string"}, "bool",
-                   [](Args &a) { return Value::boolean(lmhtml::strlib::contains(a[0].s, a[1].s)); });
-  checked_function(r, "str_lower", {"string"}, "string",
-                   [](Args &a) { return Value::string(lmhtml::strlib::lower(a[0].s)); });
-  checked_function(r, "str_substr", {"string", "int", "int"}, "string",
-                   [](Args &a) { return Value::string(lmhtml::strlib::substr(a[0].s, a[1].i, a[2].i)); });
-  checked_function(r, "str_len", {"string"}, "int",
-                   [](Args &a) { return Value::integer(lmhtml::strlib::len(a[0].s)); });
-  checked_function(r, "str_match", {"string", "string"}, "bool",
-                   [](Args &a) { return Value::boolean(lmhtml::strlib::match(a[0].s, a[1].s)); });
+
 }
 
 // Short human/LLM-readable schema summary, mechanically derived from the
@@ -1322,6 +1295,7 @@ int main(int argc, char **argv) {
   }
   for (const auto &program : programs) {
     try {
+      host.collections.reset();
       program.run(context, reg);
     } catch (const dslvm::Error &error) {
       return dslvm::report_error("run", error);

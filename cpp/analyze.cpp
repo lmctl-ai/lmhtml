@@ -1,5 +1,5 @@
 #include "analyze.hpp"
-#include "strlib.hpp"
+#include "stdlib/string.hpp"
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -60,7 +60,7 @@ std::map<std::string, std::string> norm_attrs(lxb_dom_node_t *node) {
     const lxb_char_t *value = lxb_dom_attr_value(attr, &vlen);
     std::string n(reinterpret_cast<const char *>(name), nlen);
     std::string v = value ? std::string(reinterpret_cast<const char *>(value), vlen) : "";
-    if (strlib::starts_with(n, "data-")) continue;
+    if (dslvm::stdlib::str_starts_with(n, "data-")) continue;
     if (boolean_attrs().count(n)) v.clear(); // disabled == disabled="disabled"
     if (n == "class") {
       std::vector<std::string> tokens;

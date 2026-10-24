@@ -20,21 +20,6 @@ endforeach()
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/schema_embedded.hpp"
   "#pragma once\n#include <cstddef>\nnamespace lmhtml { inline constexpr unsigned char embedded_schema[] = {${LMHTML_SCHEMA_INITIALIZER}}; inline constexpr std::size_t embedded_schema_size = sizeof(embedded_schema); }\n")
-# Compile only the three adopted catalog functions. The full pinned header
-# also defines float parsers using from_chars, unavailable in Apple libc++.
-# Keep the selected implementation verbatim rather than maintaining a fork.
-set(STRING_CATALOG "${CMAKE_CURRENT_SOURCE_DIR}/cpp/stdlib/string.hpp")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${STRING_CATALOG}")
-file(READ "${STRING_CATALOG}" STRING_CATALOG_SOURCE)
-string(FIND "${STRING_CATALOG_SOURCE}" "inline int64_t str_find(" STRING_CATALOG_START)
-string(FIND "${STRING_CATALOG_SOURCE}" "inline std::string str_repeat(" STRING_CATALOG_END)
-if(STRING_CATALOG_START LESS 0 OR STRING_CATALOG_END LESS STRING_CATALOG_START)
-  message(FATAL_ERROR "Pinned string catalog layout changed: update the selected find/replace/trim range")
-endif()
-math(EXPR STRING_CATALOG_SIZE "${STRING_CATALOG_END} - ${STRING_CATALOG_START}")
-string(SUBSTRING "${STRING_CATALOG_SOURCE}" ${STRING_CATALOG_START} ${STRING_CATALOG_SIZE} STRING_CATALOG_SELECTED)
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generated/string_template.hpp"
-  "#pragma once\n#include \"dslvm.hpp\"\nnamespace dslvm::stdlib {\n${STRING_CATALOG_SELECTED}\n}\n")
 set(LEXBOR_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(LEXBOR_BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(LEXBOR_BUILD_TESTS OFF CACHE BOOL "" FORCE)

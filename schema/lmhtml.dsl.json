@@ -53,7 +53,13 @@
     "StrList": {
       "methods": {
         "len": [{"params": [], "returns": "int"}],
-        "at": [{"params": ["int"], "returns": "string"}]
+        "at": [{"params": ["int"], "returns": "string"}],
+        "add": [{"params": ["string"], "returns": "StrList"}],
+        "set": [{"params": ["int", "string"], "returns": "StrList"}],
+        "contains": [{"params": ["string"], "returns": "bool"}],
+        "index_of": [{"params": ["string"], "returns": "int"}],
+        "clear": [{"params": [], "returns": "StrList"}],
+        "join": [{"params": ["string"], "returns": "string"}]
       }
     },
     "DocList": {
@@ -98,6 +104,40 @@
         "write_text": [{"params": ["string"], "returns": "void"}],
         "write_json": [{"params": ["string"], "returns": "void"}]
       }
+    },
+    "IntList": {
+      "methods": {
+        "len": [{"params": [], "returns": "int"}],
+        "at": [{"params": ["int"], "returns": "int"}],
+        "add": [{"params": ["int"], "returns": "IntList"}],
+        "set": [{"params": ["int", "int"], "returns": "IntList"}],
+        "contains": [{"params": ["int"], "returns": "bool"}],
+        "index_of": [{"params": ["int"], "returns": "int"}],
+        "clear": [{"params": [], "returns": "IntList"}]
+      }
+    },
+    "FloatList": {
+      "methods": {
+        "len": [{"params": [], "returns": "int"}],
+        "at": [{"params": ["int"], "returns": "float"}],
+        "add": [{"params": ["float"], "returns": "FloatList"}],
+        "set": [{"params": ["int", "float"], "returns": "FloatList"}],
+        "contains": [{"params": ["float"], "returns": "bool"}],
+        "index_of": [{"params": ["float"], "returns": "int"}],
+        "clear": [{"params": [], "returns": "FloatList"}]
+      }
+    },
+    "StrMap": {
+      "methods": {
+        "len": [{"params": [], "returns": "int"}],
+        "has": [{"params": ["string"], "returns": "bool"}],
+        "get": [{"params": ["string"], "returns": "string"}],
+        "get_or": [{"params": ["string", "string"], "returns": "string"}],
+        "set": [{"params": ["string", "string"], "returns": "StrMap"}],
+        "key_at": [{"params": ["int"], "returns": "string"}],
+        "remove": [{"params": ["string"], "returns": "bool"}],
+        "clear": [{"params": [], "returns": "StrMap"}]
+      }
     }
   },
   "functions": {
@@ -115,7 +155,17 @@
     "str_lower": [{"params": ["string"], "returns": "string"}],
     "str_substr": [{"params": ["string", "int", "int"], "returns": "string"}],
     "str_len": [{"params": ["string"], "returns": "int"}],
-    "str_match": [{"params": ["string", "string"], "returns": "bool"}]
+    "str_match": [{"params": ["string", "string"], "returns": "bool"}],
+    "str_upper": [{"params": ["string"], "returns": "string"}],
+    "str_repeat": [{"params": ["string", "int"], "returns": "string"}],
+    "str_to_int": [{"params": ["string"], "returns": "int"}],
+    "str_is_int": [{"params": ["string"], "returns": "bool"}],
+    "str_to_float": [{"params": ["string"], "returns": "float"}],
+    "str_is_float": [{"params": ["string"], "returns": "bool"}],
+    "int_list": [{"params": [], "returns": "IntList"}],
+    "float_list": [{"params": [], "returns": "FloatList"}],
+    "str_map": [{"params": [], "returns": "StrMap"}],
+    "str_split": [{"params": ["string", "string"], "returns": "StrList"}]
   },
   "context": {
     "html": "Html",

@@ -9,6 +9,11 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <cstdlib>
+#include <locale.h>
+#if defined(__APPLE__)
+#include <xlocale.h>
+#endif
 #include <string>
 #include <system_error>
 
@@ -97,18 +102,66 @@ inline int64_t str_to_int(const std::string& s) {
   int64_t value = 0; const char* begin = s.data() + (s[0] == '+' ? 1 : 0);
   std::from_chars(begin, s.data() + s.size(), value, 10); return value;
 }
+namespace detail {
+// Per-object C locale: conversion never reads or changes the process locale.
+// Unlike a global setlocale switch, this is safe for concurrent host callbacks.
+struct FloatLocale {
+#if defined(_WIN32)
+  _locale_t value = _create_locale(LC_NUMERIC, "C");
+  ~FloatLocale() { if (value) _free_locale(value); }
+#else
+  locale_t value = newlocale(LC_NUMERIC_MASK, "C", nullptr);
+  ~FloatLocale() { if (value) freelocale(value); }
+#endif
+  FloatLocale() = default;
+  FloatLocale(const FloatLocale&) = delete;
+  FloatLocale& operator=(const FloatLocale&) = delete;
+};
+// strtod_l is available on POSIX; Windows spells it _strtod_l. Validate decimal
+// syntax first to exclude whitespace, hexadecimal floats, NaN/Inf and prefixes.
+inline bool parse_float(const std::string& s, double& value) {
+  size_t i = 0;
+  if (i < s.size() && (s[i] == '+' || s[i] == '-')) ++i;
+  bool digits = false, nonzero = false;
+  auto scan_digits = [&]() {
+    while (i < s.size() && s[i] >= '0' && s[i] <= '9') {
+      digits = true;
+      nonzero = nonzero || s[i] != '0';
+      ++i;
+    }
+  };
+  scan_digits();
+  if (i < s.size() && s[i] == '.') { ++i; scan_digits(); }
+  if (!digits) return false;
+  if (i < s.size() && (s[i] == 'e' || s[i] == 'E')) {
+    ++i;
+    if (i < s.size() && (s[i] == '+' || s[i] == '-')) ++i;
+    const size_t exponent = i;
+    while (i < s.size() && s[i] >= '0' && s[i] <= '9') ++i;
+    if (i == exponent) return false;
+  }
+  if (i != s.size()) return false;
+  static const FloatLocale locale;
+  if (!locale.value) throw Error("str_to_float: cannot create C numeric locale");
+  char* end = nullptr;
+#if defined(_WIN32)
+  value = _strtod_l(s.c_str(), &end, locale.value);
+#else
+  value = strtod_l(s.c_str(), &end, locale.value);
+#endif
+  // ERANGE alone is not a rejection: some C libraries set it for representable
+  // subnormals. Match from_chars by rejecting only overflow/underflow to zero.
+  return end == s.c_str() + s.size() && std::isfinite(value) &&
+         (value != 0.0 || !nonzero);
+}
+} // namespace detail
 inline bool str_is_float(const std::string& s) {
-  if (s.empty()) return false;
-  const char* begin = s.data();
-  if (s[0] == '+') { if (s.size() == 1 || s[1] == '-' || s[1] == '+') return false; ++begin; }
   double value = 0;
-  const auto r = std::from_chars(begin, s.data() + s.size(), value, std::chars_format::general);
-  return r.ec == std::errc{} && r.ptr == s.data() + s.size() && std::isfinite(value);
+  return detail::parse_float(s, value);
 }
 inline double str_to_float(const std::string& s) {
-  if (!str_is_float(s)) return 0.0;
-  double value = 0; const char* begin = s.data() + (s[0] == '+' ? 1 : 0);
-  std::from_chars(begin, s.data() + s.size(), value, std::chars_format::general); return value;
+  double value = 0;
+  return detail::parse_float(s, value) ? value : 0.0;
 }
 
 namespace detail {

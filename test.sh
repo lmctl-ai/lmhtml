@@ -24,8 +24,6 @@ LMSCRIPT="$(scripts/select-compiler.sh)"
 COMPILER_SOURCE="$LMSCRIPT"
 scripts/sync-sdk.sh --verify >/dev/null || fail "SDK header pin mismatch"
 ok "SDK header matches sdk.lock"
-scripts/verify-string-catalog.sh || fail "string catalog pin"
-ok "string catalog matches string-catalog.lock"
 python3 scripts/verify-md4c.py || fail "md4c pin"
 ok "md4c source and MIT license hashes"
 scripts/sync-lexbor.sh --verify >/dev/null || fail "lexbor pin mismatch"
@@ -572,7 +570,7 @@ report.add("glob", "", cases, ""); report.write_text("'"$WORK"'/glob.txt");'
 [ "$(cat "$WORK/glob.txt")" = "glob :8: " ] || fail "glob semantics: $(cat "$WORK/glob.txt")"
 compile_chunk glob-costly 'let t = "a"; for (i in range(0, 20)) { t = t + t; } let p = "a"; for (i in range(0, 15)) { p = p + p; } str_match(t, "*" + p + "b");'
 set +e; out="$("$TIMEOUT_CMD" 10 "$HOST" --dsl "$WORK/glob-costly.dslb" 2>&1)"; code=$?; set -e
-[ "$code" = 3 ] && [[ "$out" == *'too costly'* ]] || fail "costly glob not bounded (exit $code): $out"
+[ "$code" = 3 ] && [[ "$out" == *'str_match: pattern exceeds the 2^27 work limit'* ]] || fail "costly glob not bounded (exit $code): $out"
 ok "str_match: escapes, literal '[', empty cases; 1 MiB x 32 KiB worst case refused fast"
 
 compile_chunk link-kinds 'let pages = html.load_dir("tests/fixtures/link-kinds");
