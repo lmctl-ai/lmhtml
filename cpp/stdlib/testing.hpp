@@ -46,7 +46,6 @@ inline void testing_assert_close(double a, double b, double tolerance) {
 }
 
 inline Registry& register_testing(Registry& r, std::ostream* sink = nullptr) {
-  if (r.has_std()) { r.set_std_output(sink); return r; }
   std::ostream* output = sink ? sink : &std::cout;
   r.function("print", {"string"}, "void", [output](Args& a) {
     testing_print(*output, a[0].s);
