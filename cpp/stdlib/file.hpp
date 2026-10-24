@@ -19,16 +19,10 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <climits>
 #include <string>
 #include <system_error>
+#include <stdexcept>
 #include <vector>
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#endif
 
 namespace dslvm::stdlib {
 namespace file_detail {
@@ -50,17 +44,16 @@ inline void reject_nul(const std::string& function, const std::string& path) {
 #ifdef _WIN32
 inline std::filesystem::path native_path(const std::string& function, const std::string& path) {
   reject_nul(function, path);
-  if (path.size() > INT_MAX) throw failure(function, path, reason(std::errc::filename_too_long));
-  const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path.data(), static_cast<int>(path.size()), nullptr, 0);
-  if (count <= 0) throw failure(function, path, std::system_category().message(GetLastError()));
-  std::wstring wide(static_cast<size_t>(count), L'\0');
-  if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path.data(), static_cast<int>(path.size()), wide.data(), count) != count)
-    throw failure(function, path, std::system_category().message(GetLastError()));
+  if (path.empty()) return std::filesystem::path();
+  std::filesystem::path converted;
+  try { converted = std::filesystem::u8path(path); }
+  catch (const std::filesystem::filesystem_error& e) { throw failure(function, path, e.code().message()); }
+  catch (const std::range_error&) { throw failure(function, path, reason(std::errc::illegal_byte_sequence)); }
   std::error_code ec;
-  std::filesystem::path absolute = std::filesystem::absolute(std::filesystem::path(wide), ec);
+  std::filesystem::path absolute = std::filesystem::absolute(converted, ec);
   if (ec) throw failure(function, path, ec.message());
   absolute = absolute.lexically_normal().make_preferred();
-  wide = absolute.native();
+  std::wstring wide = absolute.native();
   if (wide.size() >= 248 && wide.rfind(L"\\\\?\\", 0) != 0) {
     if (wide.rfind(L"\\\\", 0) == 0) wide = L"\\\\?\\UNC" + wide.substr(1);
     else wide = L"\\\\?\\" + wide;
