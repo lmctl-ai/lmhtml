@@ -1,6 +1,7 @@
 #include <lexbor/dom/interfaces/document_type.h>
 #include "stdlib/string.hpp"
 #include "stdlib/collections.hpp"
+#include "stdlib/testing.hpp"
 #include "dslvm.hpp"
 #include "analyze.hpp"
 #include "html.hpp"
@@ -672,6 +673,7 @@ template <class L> Value wrap_lex(const char *who, L &&fn) {
 }
 
 void register_host(dslvm::Registry &r, Host &h) {
+  dslvm::stdlib::register_testing(r);
   r.context("html", "Html");
   r.context("report", "Report");
 
