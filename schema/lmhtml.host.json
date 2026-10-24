@@ -1,0 +1,565 @@
+{
+  "dsl.schema": 2,
+  "name": "lmhtml",
+  "types": {
+    "Doc": {
+      "methods": {
+        "normalize": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "clean": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "source_elements": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "StrList"
+          }
+        ],
+        "source": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "source_inner": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "string"
+          },
+          {
+            "params": [
+              "string",
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "source_outer": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "markdown": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "byte_size": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "doctype": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "markup_errors": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "select": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "NodeList"
+          }
+        ],
+        "path": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "links": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "classes_used": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "css_classes": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "css_ids": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "ids": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "title": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "summary": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ]
+      }
+    },
+    "Node": {
+      "methods": {
+        "attributes": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "path": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "tag": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "attr": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "has_attr": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "bool"
+          }
+        ],
+        "set_attr": [
+          {
+            "params": [
+              "string",
+              "string"
+            ],
+            "returns": "self"
+          }
+        ],
+        "text": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "outer_html": [
+          {
+            "params": [],
+            "returns": "string"
+          }
+        ],
+        "parent": [
+          {
+            "params": [],
+            "returns": "Node"
+          }
+        ],
+        "select": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "NodeList"
+          }
+        ],
+        "remove": [
+          {
+            "params": [],
+            "returns": "void"
+          }
+        ],
+        "replace_with": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Node"
+          }
+        ],
+        "insert_before": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Node"
+          }
+        ],
+        "insert_after": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Node"
+          }
+        ],
+        "hash": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ]
+      }
+    },
+    "NodeList": {
+      "methods": {
+        "len": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "at": [
+          {
+            "params": [
+              "int"
+            ],
+            "returns": "Node"
+          }
+        ]
+      }
+    },
+    "DocList": {
+      "methods": {
+        "len": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "at": [
+          {
+            "params": [
+              "int"
+            ],
+            "returns": "Doc"
+          }
+        ],
+        "classes_used": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "css_classes": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "ids": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ],
+        "css_ids": [
+          {
+            "params": [],
+            "returns": "StrList"
+          }
+        ]
+      }
+    },
+    "ImageSize": {
+      "methods": {
+        "width": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "height": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ]
+      }
+    },
+    "Html": {
+      "methods": {
+        "png_size": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "ImageSize"
+          }
+        ],
+        "load": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Doc"
+          }
+        ],
+        "load_dir": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "DocList"
+          },
+          {
+            "params": [
+              "string",
+              "string",
+              "string"
+            ],
+            "returns": "DocList"
+          }
+        ],
+        "parse": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Doc"
+          }
+        ],
+        "save": [
+          {
+            "params": [
+              "Doc",
+              "string"
+            ],
+            "returns": "void"
+          },
+          {
+            "params": [
+              "string",
+              "string"
+            ],
+            "returns": "void"
+          }
+        ],
+        "resolve": [
+          {
+            "params": [
+              "Doc",
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "link_exists": [
+          {
+            "params": [
+              "Doc",
+              "string"
+            ],
+            "returns": "bool"
+          }
+        ],
+        "link_kind": [
+          {
+            "params": [
+              "Doc",
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "diff": [
+          {
+            "params": [
+              "Doc",
+              "Doc"
+            ],
+            "returns": "int"
+          }
+        ],
+        "write_template": [
+          {
+            "params": [
+              "DocList",
+              "int",
+              "string"
+            ],
+            "returns": "int"
+          }
+        ],
+        "from_markdown": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Doc"
+          },
+          {
+            "params": [
+              "string",
+              "bool"
+            ],
+            "returns": "Doc"
+          }
+        ],
+        "render_markdown": [
+          {
+            "params": [
+              "string",
+              "string",
+              "string"
+            ],
+            "returns": "Doc"
+          }
+        ],
+        "index_markdown": [
+          {
+            "params": [
+              "string",
+              "string"
+            ],
+            "returns": "string"
+          }
+        ],
+        "site": [
+          {
+            "params": [
+              "string",
+              "string",
+              "string"
+            ],
+            "returns": "void"
+          }
+        ],
+        "check_markdown": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "void"
+          }
+        ]
+      }
+    },
+    "Report": {
+      "methods": {
+        "fail_if_any": [
+          {
+            "params": [],
+            "returns": "void"
+          }
+        ],
+        "add": [
+          {
+            "params": [
+              "string",
+              "string",
+              "int",
+              "string"
+            ],
+            "returns": "void"
+          }
+        ],
+        "write_text": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "void"
+          }
+        ],
+        "write_json": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "void"
+          }
+        ]
+      }
+    }
+  },
+  "functions": {
+    "str_text_prefix": [
+      {
+        "params": [
+          "string",
+          "int"
+        ],
+        "returns": "string"
+      }
+    ],
+    "suggest": [
+      {
+        "params": [
+          "string",
+          "StrList"
+        ],
+        "returns": "StrList"
+      }
+    ],
+    "str_difference": [
+      {
+        "params": [
+          "StrList",
+          "StrList"
+        ],
+        "returns": "StrList"
+      }
+    ],
+    "str_union": [
+      {
+        "params": [
+          "StrList",
+          "StrList"
+        ],
+        "returns": "StrList"
+      }
+    ]
+  },
+  "context": {
+    "html": "Html",
+    "report": "Report"
+  }
+}

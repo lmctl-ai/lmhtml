@@ -50,7 +50,6 @@ struct Host {
   std::vector<std::unique_ptr<ImageSize>> image_sizes;
   std::vector<std::unique_ptr<lmhtml::Document>> docs;
   std::vector<std::unique_ptr<std::vector<lxb_dom_node_t *>>> node_lists;
-  dslvm::stdlib::Collections collections;
   std::vector<std::unique_ptr<std::vector<lmhtml::Document *>>> doc_lists;
   Report report;
   std::function<Value(const std::string &, const std::string &)> save;
@@ -63,8 +62,8 @@ struct Host {
     auto it = dir_roots.find(doc);
     return it == dir_roots.end() ? "." : it->second;
   }
-  Value hold_strs(std::vector<std::string> values) {
-    return Value::object("StrList", collections.make_str_list(std::move(values)));
+  Value hold_strs(dslvm::Registry &registry, std::vector<std::string> values) {
+    return Value::object("StrList", registry.std_collections().make_str_list(std::move(values)));
   }
   template <class T>
   Value hold(std::vector<std::unique_ptr<T>> &arena, const char *type, T value) {
@@ -673,8 +672,6 @@ template <class L> Value wrap_lex(const char *who, L &&fn) {
 }
 
 void register_host(dslvm::Registry &r, Host &h) {
-  dslvm::stdlib::register_string(r);
-  dslvm::stdlib::register_collections(r, h.collections);
   r.context("html", "Html");
   r.context("report", "Report");
 
@@ -692,7 +689,7 @@ void register_host(dslvm::Registry &r, Host &h) {
   checked_method(r, "Doc", "source", {}, "string", [](void *p, Args &) {
     return Value::string(doc_of(p, "Doc.source")->source);
   });
-  checked_method(r, "Doc", "source_elements", {"string"}, "StrList", [&h](void *p, Args &a) {
+  checked_method(r, "Doc", "source_elements", {"string"}, "StrList", [&h, &r](void *p, Args &a) {
     auto *doc = doc_of(p, "Doc.source_elements");
     std::vector<std::string> elements;
     for (const auto &range : doc->source_ranges) {
@@ -700,7 +697,7 @@ void register_host(dslvm::Registry &r, Host &h) {
       if (!range.end) throw dslvm::Error("source element has no explicit end tag: " + a[0].s);
       elements.push_back(doc->source.substr(range.begin, range.end - range.begin));
     }
-    return h.hold_strs(std::move(elements));
+    return h.hold_strs(r, std::move(elements));
   });
   checked_method(r, "Doc", "source_inner", {"string"}, "string", [](void *p, Args &a) {
     return wrap_lex("Doc.source_inner", [&] { return Value::string(lmhtml::source_element(*doc_of(p, "Doc.source_inner"), a[0].s, true)); });
@@ -725,21 +722,21 @@ void register_host(dslvm::Registry &r, Host &h) {
     auto *name = lxb_dom_document_type_name(dt, &size);
     return Value::string(std::string(reinterpret_cast<const char *>(name), size));
   });
-  checked_method(r, "Doc", "markup_errors", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold_strs(doc_of(p, "Doc.markup_errors")->markup_errors);
+  checked_method(r, "Doc", "markup_errors", {}, "StrList", [&h, &r](void *p, Args &) {
+    return h.hold_strs(r, doc_of(p, "Doc.markup_errors")->markup_errors);
   });
-  checked_method(r, "Node", "attributes", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold_strs(lmhtml::attribute_names(node_of(p, "Node.attributes")));
+  checked_method(r, "Node", "attributes", {}, "StrList", [&h, &r](void *p, Args &) {
+    return h.hold_strs(r, lmhtml::attribute_names(node_of(p, "Node.attributes")));
   });
   checked_method(r, "Node", "path", {}, "string", [](void *p, Args &) {
     return Value::string(lmhtml::node_path(node_of(p, "Node.path")));
   });
-  checked_method(r, "Doc", "links", {}, "StrList", [&h](void *p, Args &) {
+  checked_method(r, "Doc", "links", {}, "StrList", [&h, &r](void *p, Args &) {
     auto *doc = doc_of(p, "Doc.links");
-    return h.hold_strs(lmhtml::collect_links(*doc));
+    return h.hold_strs(r, lmhtml::collect_links(*doc));
   });
-  checked_method(r, "Doc", "classes_used", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold_strs(lmhtml::classes_used(*doc_of(p, "Doc.classes_used")));
+  checked_method(r, "Doc", "classes_used", {}, "StrList", [&h, &r](void *p, Args &) {
+    return h.hold_strs(r, lmhtml::classes_used(*doc_of(p, "Doc.classes_used")));
   });
   // External stylesheets resolve like links: external/missing files skip.
   auto css_resolver = [&h](lmhtml::Document *doc) {
@@ -750,20 +747,20 @@ void register_host(dslvm::Registry &r, Host &h) {
       return std::filesystem::is_regular_file(t.file, ec) ? t.file : "";
     };
   };
-  checked_method(r, "Doc", "css_classes", {}, "StrList", [&h, css_resolver](void *p, Args &) {
+  checked_method(r, "Doc", "css_classes", {}, "StrList", [&h, &r, css_resolver](void *p, Args &) {
     auto *doc = doc_of(p, "Doc.css_classes");
     std::vector<std::string> classes, ids;
     lmhtml::css_names(*doc, classes, ids, css_resolver(doc));
-    return h.hold_strs(std::move(classes));
+    return h.hold_strs(r, std::move(classes));
   });
-  checked_method(r, "Doc", "css_ids", {}, "StrList", [&h, css_resolver](void *p, Args &) {
+  checked_method(r, "Doc", "css_ids", {}, "StrList", [&h, &r, css_resolver](void *p, Args &) {
     auto *doc = doc_of(p, "Doc.css_ids");
     std::vector<std::string> classes, ids;
     lmhtml::css_names(*doc, classes, ids, css_resolver(doc));
-    return h.hold_strs(std::move(ids));
+    return h.hold_strs(r, std::move(ids));
   });
-  checked_method(r, "Doc", "ids", {}, "StrList", [&h](void *p, Args &) {
-    return h.hold_strs(lmhtml::ids_used(*doc_of(p, "Doc.ids")));
+  checked_method(r, "Doc", "ids", {}, "StrList", [&h, &r](void *p, Args &) {
+    return h.hold_strs(r, lmhtml::ids_used(*doc_of(p, "Doc.ids")));
   });
 
   checked_method(r, "Node", "tag", {}, "string", [](void *p, Args &) {
@@ -857,7 +854,7 @@ void register_host(dslvm::Registry &r, Host &h) {
     return Value::object("Doc", docs[static_cast<size_t>(a[0].i)]);
   });
   // Site-wide aggregation: one call instead of the script-side str_union loop.
-  auto aggregate = [&h, css_resolver](void *p, int what) {
+  auto aggregate = [&h, &r, css_resolver](void *p, int what) {
     auto &pages = *self<std::vector<lmhtml::Document *>>(p);
     std::set<std::string> all;
     for (auto *doc : pages) {
@@ -870,7 +867,7 @@ void register_host(dslvm::Registry &r, Host &h) {
       }
       all.insert(names.begin(), names.end());
     }
-    return h.hold_strs(std::vector<std::string>(all.begin(), all.end()));
+    return h.hold_strs(r, std::vector<std::string>(all.begin(), all.end()));
   };
   checked_method(r, "DocList", "classes_used", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 0); });
   checked_method(r, "DocList", "css_classes", {}, "StrList", [aggregate](void *p, Args &) { return aggregate(p, 1); });
@@ -1132,19 +1129,19 @@ void register_host(dslvm::Registry &r, Host &h) {
     return Value::none();
   });
 
-  checked_function(r, "suggest", {"string", "StrList"}, "StrList", [&h](Args &a) {
+  checked_function(r, "suggest", {"string", "StrList"}, "StrList", [&h, &r](Args &a) {
     auto &candidates = self<dslvm::stdlib::StrList>(a[1].obj)->items;
-    return h.hold_strs(lmhtml::strlib::suggest(a[0].s, candidates));
+    return h.hold_strs(r, lmhtml::strlib::suggest(a[0].s, candidates));
   });
-  checked_function(r, "str_difference", {"StrList", "StrList"}, "StrList", [&h](Args &a) {
+  checked_function(r, "str_difference", {"StrList", "StrList"}, "StrList", [&h, &r](Args &a) {
     auto &incl = self<dslvm::stdlib::StrList>(a[0].obj)->items;
     auto &excl = self<dslvm::stdlib::StrList>(a[1].obj)->items;
-    return h.hold_strs(lmhtml::strlib::difference(incl, excl));
+    return h.hold_strs(r, lmhtml::strlib::difference(incl, excl));
   });
-  checked_function(r, "str_union", {"StrList", "StrList"}, "StrList", [&h](Args &a) {
+  checked_function(r, "str_union", {"StrList", "StrList"}, "StrList", [&h, &r](Args &a) {
     auto &left = self<dslvm::stdlib::StrList>(a[0].obj)->items;
     auto &right = self<dslvm::stdlib::StrList>(a[1].obj)->items;
-    return h.hold_strs(lmhtml::strlib::set_union(left, right));
+    return h.hold_strs(r, lmhtml::strlib::set_union(left, right));
   });
   // Catalog operations are byte-oriented; excerpts need whole UTF-8 codepoints.
   checked_function(r, "str_text_prefix", {"string", "int"}, "string", [](Args &a) {
@@ -1295,7 +1292,6 @@ int main(int argc, char **argv) {
   }
   for (const auto &program : programs) {
     try {
-      host.collections.reset();
       program.run(context, reg);
     } catch (const dslvm::Error &error) {
       return dslvm::report_error("run", error);
