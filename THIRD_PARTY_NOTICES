@@ -3,7 +3,7 @@ Third-party notices for lmhtml
 
 lmhtml's own code (including the vendored `cpp/dslvm.hpp` runtime and
 `cpp/stdlib/string.hpp` catalog, from the
-cpp-dsl-sdk project) is Copyright (c) 2026 Lattice Systems LLC, MIT license
+lmcode-cpp project) is Copyright (c) 2026 Lattice Systems LLC, MIT license
 (see LICENSE). This file covers third-party components shipped in or linked
 into the distributed binaries.
 

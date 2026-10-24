@@ -4,7 +4,7 @@
 
 1. **No string predicates.** **Resolved in M2** (host-side): ordinary schema
    functions bound in `cpp/strlib.*` (kept separate so they can later move
-   into a cpp-dsl-sdk catalog; other hosts would then drop theirs):
+   into a lmcode-cpp catalog; other hosts would then drop theirs):
    `str_starts_with`, `str_ends_with`, `str_contains` (bool, string,string),
    `str_lower` (ASCII), `str_substr(s, start, len)` (byte-based, clamped),
    `str_len` (bytes).

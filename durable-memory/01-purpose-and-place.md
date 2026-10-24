@@ -15,7 +15,7 @@ compatibility tests.
 
 - **lexbor** (C, Apache-2.0) supplies the HTML5 parser, DOM, CSS parser and
   selectors. lmhtml wraps it in C++; lexbor has no knowledge of the DSL.
-- **cpp-dsl-sdk** (`include/dslvm.hpp`, header-only, bytecode v5) is vendored as
+- **lmcode-cpp** (`include/dslvm.hpp`, header-only, bytecode v5) is vendored as
   a single header `cpp/dslvm.hpp`, pinned by `sdk.lock` (repo/commit/sha256),
   exactly like lmcad. It executes `_dsl_` bytecode; it never parses HTML.
 - **lmscript**, published via npm as `@lmctl-ai/lmctl`, compiles `_dsl_` chunks

@@ -75,7 +75,7 @@ full stylesheet; rules expose their selector lists, and
 Options: git submodule vs CMake FetchContent pinned by hash vs vendored copy.
 
 **Recommendation: FetchContent pinned by commit hash**, mirroring how
-`sdk.lock` pins cpp-dsl-sdk:
+`sdk.lock` pins lmcode-cpp:
 
 - `lexbor.lock` (key=value, like sdk.lock) records repo + commit + the
   shallow-clone date; `scripts/sync-lexbor.sh` clones/fetches into

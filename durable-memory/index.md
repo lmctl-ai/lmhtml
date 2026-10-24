@@ -1,10 +1,10 @@
 # lmhtml durable memory
 
-Design and investigation notes for the lmhtml host (lexbor + cpp-dsl-sdk,
+Design and investigation notes for the lmhtml host (lexbor + lmcode-cpp,
 scripted by lmscript `_dsl_` bytecode). Read in numeric order.
 
 - `01-purpose-and-place.md` — what lmhtml is; relation to lexbor,
-  cpp-dsl-sdk, lmscript, lmcad/lmor-dsl; host-vs-script scope boundary.
+  lmcode-cpp, lmscript, lmcad/lmor-dsl; host-vs-script scope boundary.
 - `02-lexbor-static.md` — measured static-build spike (12.3 s build,
   4.2 MiB archive, 2.0 MiB fully-static spike binary, `ldd` clean);
   module needs; C++ wrapping quirks; consume via pinned FetchContent-style

@@ -1,6 +1,6 @@
 #pragma once
 // String helpers bound as ordinary schema functions (str_*). Kept separate
-// from the HTML host so the set can later move into a cpp-dsl-sdk catalog.
+// from the HTML host so the set can later move into a lmcode-cpp catalog.
 // No lexbor types here.
 #include <string>
 #include <cstdint>
