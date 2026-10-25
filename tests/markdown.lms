@@ -1,4 +1,4 @@
-p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
+p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 fn equal(markup: string, expected: string) -> void {
   let doc = html.parse("<main>" + markup + "</main>");
   let first = doc.markdown("main");
@@ -17,5 +17,5 @@ equal("<p>- literal bullet</p><p>1. literal number</p><p>2) literal number</p>",
 equal("<h1>Title</h1>\n  <p>Text</p>\n<p><em>A</em> <strong>B</strong></p>\n", "# Title\n\nText\n\n*A* **B**\n");
 report.write_text(${ARGV[1]});
 report.fail_if_any();
-end _dsl_
+end _lmcode_
 savedsl(p, ARGV[0]);

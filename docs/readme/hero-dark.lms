@@ -1,5 +1,5 @@
 out = ARGV.len() > 0 ? ARGV[0] : "build/readme-hero-dark.dslb";
-p = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+p = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(1440, 600, "#101a23");
 
 scene.text(72.0, 74.0, 18.0, "LMHTML  /  STRUCTURE YOU CAN ACT ON", "#8bd8c8").set_attr("font-weight", "700");
@@ -46,5 +46,5 @@ right.set_attr("marker-end", "arrow");
 
 scene.text(72.0, 574.0, 14.0, "HTML in. Clear findings and deliberate edits out.", "#9db2bc");
 scene.render_png("build/rendered/readme-hero-dark.png", 1440, 600, 1);
-end _dsl_
+end _lmcode_
 savedsl(p, out);

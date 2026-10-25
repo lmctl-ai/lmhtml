@@ -54,3 +54,11 @@
     after each selector-list use (M1), and `lxb_css_parser_selectors_destroy`
     before `lxb_css_parser_destroy` when `lxb_css_parser_selectors_init` was
     called (M2). Any new CSS entry point must pair these.
+
+## Compiler spelling compatibility
+
+`scripts/lmscript-source.mjs` remains a source-checkout adapter whose standalone
+block matcher recognizes `_dsl_` only. The published lmscript 0.2.420 supports
+both `_dsl_` and `_lmcode_`; the adapter is optional and CI uses the published
+compiler. `test.sh` retains one `_dsl_ schema="..."` fixture to verify the
+legacy spelling.

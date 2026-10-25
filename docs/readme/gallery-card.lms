@@ -18,7 +18,7 @@ for (i in range(0, source_lines.len())) {
   }
   if (current != "") { display_lines = push(display_lines, current); }
 }
-p = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+p = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(960, 540, "#101a23");
 scene.rect(28.0, 28.0, 904.0, 484.0, "#182a38").set_attr("stroke", "#36505e").set_attr("stroke-width", "2");
 scene.text(56.0, 78.0, 22.0, ${"LMHTML  /  " + title}, "#8bd8c8").set_attr("font-weight", "700");
@@ -34,5 +34,5 @@ scene.text(56.0, 386.0, 16.0, ${display_lines.get(7, "")}, "#e3ebef");
 scene.text(56.0, 420.0, 16.0, ${display_lines.get(8, "")}, "#e3ebef");
 scene.text(56.0, 474.0, 13.0, "RELEASED LMHTML OUTPUT  ·  EXAMPLE SOURCE IN THIS REPOSITORY", "#9db2bc");
 scene.render_png(${image_path}, 960, 540, 1);
-end _dsl_
+end _lmcode_
 savedsl(p, out);

@@ -182,9 +182,9 @@ ok "multiple bytecode files run sequentially against one embedded schema"
 
 compile_chunk() { # name body
   cat > "$WORK/$1.lms" <<EOF2
-p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
+p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 $2
-end _dsl_
+end _lmcode_
 savedsl(p, "$WORK/$1.dslb");
 EOF2
   "$LMSCRIPT" "$WORK/$1.lms" "$WORK/$1.dslb" >/dev/null || fail "$1 compile"
@@ -767,11 +767,11 @@ def png(w,h):
 (root/'not.png').write_bytes(b'x'*33)
 PYPNG
 cat > "$WORK/png-size.lms" <<'EOF'
-p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
+p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 let size = html.png_size(${ARGV[1]});
 if (size.width() != 321 || size.height() != 123) { report.add("test", "png", 0, "wrong dimensions"); }
 report.fail_if_any();
-end _dsl_
+end _lmcode_
 savedsl(p, ARGV[0]);
 EOF
 "$LMSCRIPT" "$WORK/png-size.lms" "$WORK/png-size.dslb" "$WORK/size.png" || fail "PNG size compile"

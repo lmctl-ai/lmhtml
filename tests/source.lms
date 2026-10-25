@@ -1,4 +1,4 @@
-p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
+p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 let raw = "<!DOCTYPE html>\n<html lang='en'><head><title>X</title></head><body><main title='a > b'>\n<h1>É &amp; X</h1><!-- <main>fake</main> --><pre>  x\n y</pre>\n</main></body></html>\n";
 let page = html.parse(raw);
 let content = "\n<h1>É &amp; X</h1><!-- <main>fake</main> --><pre>  x\n y</pre>\n";
@@ -17,5 +17,5 @@ html.save(raw, ${ARGV[1]});
 if (html.load(${ARGV[1]}).source() != raw) { report.add("fail", "save", 0, "raw save changed bytes"); }
 report.write_text(${ARGV[2]});
 report.fail_if_any();
-end _dsl_
+end _lmcode_
 savedsl(p, ARGV[0]);

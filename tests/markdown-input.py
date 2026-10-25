@@ -64,7 +64,7 @@ with tempfile.TemporaryDirectory(dir=root/'build', prefix='markdown-') as temp:
     (notes/'bad.md').write_text('---\ntitle: unterminated')
     assert b'unterminated' in run('md2html',notes/'bad.md',ok=False)
     (notes/'bad.md').unlink()
-    source='''p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
+    source='''p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 let doc = html.from_markdown("# Heading\\n\\nSummary.\\n\\n## Child");
 if (doc.title() != "Heading" || doc.summary() != "Summary.") { report.add("bad", "metadata", 0, "wrong metadata"); }
 if (html.load_dir(PATH, "*.md", "").len() != 2) { report.add("bad", "load", 0, "missing Markdown"); }
@@ -74,7 +74,7 @@ html.save(rendered, OUTPUT);
 html.check_markdown(PATH);
 let index = html.index_markdown(PATH, "other.md\\nfeatures.md");
 report.fail_if_any();
-end _dsl_
+end _lmcode_
 savedsl(p, ARGV[0]);
 '''.replace('PATH',json.dumps(notes.as_posix())).replace('OUTPUT',json.dumps((work/'dsl.html').as_posix()))
     (work/'test.lms').write_text(source)

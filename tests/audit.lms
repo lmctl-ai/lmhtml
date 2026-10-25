@@ -1,4 +1,4 @@
-p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
+p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 fn require_ok(condition: bool, message: string) -> void {
   if (!condition) { report.add("test-failure", "audit", 0, message); }
 }
@@ -17,5 +17,5 @@ require_ok(html.parse("<ul><li>one<li>two</ul>").markup_errors().len() > 0, "str
 require_ok(html.parse("<p title=one TITLE=two>text</p>").markup_errors().at(0) == "duplicate attribute title on <p>", "duplicate attributes before repair");
 report.write_text(${ARGV[1]});
 report.fail_if_any();
-end _dsl_
+end _lmcode_
 savedsl(p, ARGV[0]);

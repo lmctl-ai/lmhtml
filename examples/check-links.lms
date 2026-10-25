@@ -3,7 +3,7 @@ out = ARGV.len() > 0 ? ARGV[0] : "build/check-links.dslb";
 write_file("build/example-links/index.html", "<!doctype html><html><body><a href=\"about.html\">About</a><a href=\"missing.html\">Missing</a></body></html>");
 write_file("build/example-links/about.html", "<!doctype html><html><body><h1 id=\"team\">Team</h1><a href=\"sub/page.html\">Sub page</a><a href=\"#missing\">Missing anchor</a></body></html>");
 write_file("build/example-links/sub/page.html", "<!doctype html><html><body><a href=\"../index.html\">Home</a></body></html>");
-p = _dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
+p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";
 let pages = html.load_dir("build/example-links");
 for (i in range(0, pages.len())) {
   let page = pages.at(i);
@@ -21,5 +21,5 @@ for (i in range(0, pages.len())) {
 }
 report.write_text("build/links.txt");
 report.write_json("build/links.json");
-end _dsl_
+end _lmcode_
 savedsl(p, out);
