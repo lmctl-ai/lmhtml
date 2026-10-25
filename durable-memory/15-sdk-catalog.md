@@ -4,4 +4,6 @@ The host uses the SDK string and collection registrations. Native HTML list prod
 
 The common glob matcher is now the SDK implementation: class escapes and every scanned class entry count toward its 2^27 work cap. The bounded-failure message is `str_match: pattern exceeds the 2^27 work limit`. ASCII transforms, byte slicing and string bounds follow the SDK fragment. The old copied matcher/helpers and CMake-generated partial SDK header are removed; the pinned full SDK header supports the platform float parsers directly.
 
-`scripts/sync-sdk.sh` pins all VM/catalog header paths and SHA-256 values in `sdk.lock`, replacing the separate string catalog lock. The schema includes the fragments unchanged. Collection handles live for a chunk run; the stable arena resets between chunks. Other domain arenas and node/document lifetime checks retain their existing ownership.
+`scripts/sync-sdk.sh` pins all VM/catalog header paths and SHA-256 values in `sdk.lock`, replacing the separate string catalog lock. Collection handles live for a chunk run; the stable arena resets between chunks. Other domain arenas and node/document lifetime checks retain their existing ownership.
+
+The host embeds exact `lmhtml.host.json` bytes; published lmscript >=0.2.420 resolves the 72 standard signatures implicitly, and tests compare both effective and `--without-std` registry surfaces while retaining HTML extensions and optional testing declarations.

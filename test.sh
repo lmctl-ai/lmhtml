@@ -85,6 +85,24 @@ ok "--dsl-schema summary lists every registry member"
 diff -u <("$LMSCRIPT" --dsl-signatures schema/lmhtml.dsl.json) <("$HOST" --dsl-signatures) || fail "host/compiler signatures differ"
 ok "typed registry signatures match compiler schema signatures"
 
+cmp schema/lmhtml.host.json schema/lmhtml.dsl.json || fail "generated schema differs from host-only input"
+python3 scripts/merge-std.py --host-only schema/lmhtml.dsl.json "$WORK/host-only-schema.json"
+cmp schema/lmhtml.dsl.json "$WORK/host-only-schema.json" || fail "embedded schema still declares standard members"
+"$HOST" --dsl-signatures >"$WORK/registry-signatures.txt"
+"$LMSCRIPT" --dsl-signatures cpp/std/lmcode-std.schema.json >"$WORK/standard-signatures.txt"
+python3 - "$WORK" <<'PYHOST'
+from pathlib import Path
+import sys
+work=Path(sys.argv[1])
+registry=set((work/'registry-signatures.txt').read_text().splitlines())
+standard=set((work/'standard-signatures.txt').read_text().splitlines())
+assert len(standard)==72, len(standard)
+(work/'host-signatures.txt').write_text(''.join(line+'\n' for line in sorted(registry-standard)))
+PYHOST
+diff -u <("$LMSCRIPT" --dsl-signatures schema/lmhtml.dsl.json --without-std) "$WORK/host-signatures.txt" || fail "host-only registry/compiler signatures differ"
+ok "host-only schema bytes and --without-std parity retain domain and testing declarations"
+
+
 "$HOST" --dsl build/check-links.dslb >"$WORK/run.jsonl" || fail "check-links run"
 [ "$(cat "$WORK/run.jsonl")" = '{"ok": true, "result": null}' ] || fail "unexpected result line"
 ok "check-links bytecode runs"
