@@ -1,6 +1,6 @@
 # lmhtml durable memory
 
-`lmhtml` is a static, dependency-free lmscript `_dsl_` host embedding Lexbor for HTML5 parsing, DOM manipulation, CSS selector queries, structural diffing, and templating.
+`lmhtml` is an lmscript `_dsl_` host embedding Lexbor for HTML5 parsing, DOM manipulation, CSS selector queries, structural diffing, and templating. Linux release binaries dynamically link only system glibc (minimum 2.35); application libraries and C++ runtimes are static.
 Repository: https://github.com/lmctl-ai/lmhtml.
 
 ## 60-second takeover

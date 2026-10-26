@@ -25,10 +25,10 @@ https://www.gnu.org/licenses/gcc-exception-3.1.html
 
 glibc (Linux builds)
 --------------------
-The fully static Linux binaries statically link glibc, which is licensed
-under the GNU Lesser General Public License v2.1 or later. glibc's static
-linking is permitted by the LGPL; this project's own code is MIT. License
-text: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+Linux binaries dynamically link the system glibc (minimum glibc 2.35),
+licensed under the GNU Lesser General Public License v2.1 or later. All
+application libraries remain static; this project's own code is MIT.
+License text: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
 
 MinGW-w64 runtime (Windows build)
 ---------------------------------

@@ -16,7 +16,7 @@ host_for() {
 }
 lmhtml_bin="${LMHTML_BIN:-$(host_for lmhtml build/lmhtml)}"
 lmdraw_bin="${LMDRAW_BIN:-$(host_for lmdraw build/lmdraw)}"
-[[ "$($lmhtml_bin --version)" == "lmhtml 0.7.3" ]] || { echo "error: expected released lmhtml 0.7.3" >&2; exit 2; }
+[[ "$($lmhtml_bin --version)" == "lmhtml 0.7.4" ]] || { echo "error: expected released lmhtml 0.7.4" >&2; exit 2; }
 [[ "$($lmdraw_bin --version)" == "lmdraw 0.2.0" ]] || { echo "error: expected lmdraw 0.2.0" >&2; exit 2; }
 
 mkdir -p build/rendered examples/renders

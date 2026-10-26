@@ -364,6 +364,23 @@ report.add("strlib", "ok", 0, "checked"); report.write_text("'"$WORK"'/strlib.tx
 [ "$(cat "$WORK/strlib.txt")" = "strlib ok:0: checked" ] || fail "str_* helpers misbehave: $(cat "$WORK/strlib.txt")"
 ok "str_* helpers (starts/ends/contains/lower/substr/len) behave"
 
+compile_chunk std-interop 'file_write("'"$WORK"'/std.txt", "  19.5  ");
+let raw = file_read("'"$WORK"'/std.txt");
+let cleaned = str_trim(raw);
+if (str_replace(cleaned, "19", "20") != "20.5") { report.add("std", "replace", 0, "wrong replacement"); }
+if (str_to_float(cleaned) != 19.5) { report.add("std", "float", 0, "wrong conversion"); }
+report.add("std", "ok", 0, "file and string helpers");
+report.write_text("'"$WORK"'/std-report.txt");
+report.write_json("'"$WORK"'/std-report.json");'
+"$HOST" --dsl "$WORK/std-interop.dslb" >/dev/null || fail "standard interop run"
+[ "$(cat "$WORK/std.txt")" = "  19.5  " ] || fail "file_write/file_read content mismatch"
+[ "$(cat "$WORK/std-report.txt")" = "std ok:0: file and string helpers" ] || fail "standard report mismatch"
+python3 - "$WORK/std-report.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); assert d['count']==1 and d['findings'][0]['kind']=='std'
+PY
+ok "pinned lmcode standard file/string helpers and report outputs work"
+
 compile_chunk glob 'let ok = str_match("language-rust", "language-*");
 if (!ok) { report.add("bug", "f", 0, "star"); }
 if (str_match("language-rust", "language-?")) { report.add("bug", "f", 0, "qmark"); }
@@ -727,9 +744,9 @@ if [ "$SANITIZING" = 0 ]; then
       ok "host built ($(stat_size "$HOST") bytes; static assertion skipped on windows)"
       ;;
     *)
-      LDD_OUT="$(ldd "$HOST" 2>&1 || true)"
-      [[ "$LDD_OUT" == *'not a dynamic executable'* ]] || fail "host is not fully static: $LDD_OUT"
-      ok "host is fully static ($(stat_size "$HOST") bytes, ldd clean)"
+      python3 scripts/check-linux-linkage.py "$HOST" || fail "Linux dynamic glibc linkage policy"
+      grep -q 'dynamically link.*system glibc' THIRD_PARTY_NOTICES || fail "glibc notice missing dynamic wording"
+      ok "host uses only dynamic system glibc ($(stat_size "$HOST") bytes)"
       ;;
   esac
 fi
