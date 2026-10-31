@@ -82,6 +82,6 @@ savedsl(p, ARGV[0]);
     # npm's extensionless launcher is a shell script on Windows, not a PE file.
     if os.name == 'nt': command=[sys.argv[3], '-c', 'exec "$@"', 'lmhtml-test', *command]
     subprocess.run(command,check=True)
-    run('--dsl',work/'test.dslb')
+    run('--lmcode',work/'test.dslb')
     assert b'post-processed' in (work/'dsl.html').read_bytes()
 print(f'PASS: {count} Markdown input CLI/DSL checks')

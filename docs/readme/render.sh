@@ -23,19 +23,19 @@ mkdir -p build/rendered examples/renders
 examples=(check-links class-typos diff-pages make-template rewrite-nav)
 for name in "${examples[@]}"; do
   "$compiler" "examples/$name.lms" "build/readme-$name.dslb"
-  "$lmhtml_bin" --dsl "build/readme-$name.dslb" >/dev/null
+  "$lmhtml_bin" --lmcode "build/readme-$name.dslb" >/dev/null
 done
 
 for name in hero-light hero-dark architecture-light architecture-dark; do
   "$compiler" "docs/readme/$name.lms" "build/readme-$name.dslb"
-  "$lmdraw_bin" --dsl "build/readme-$name.dslb" >/dev/null
+  "$lmdraw_bin" --lmcode "build/readme-$name.dslb" >/dev/null
   cp "build/rendered/readme-$name.png" "docs/readme/$name.png"
 done
 
 render_card() {
   local title="$1" report="$2" slug="$3" bytecode="build/readme-gallery-card.dslb"
   "$compiler" docs/readme/gallery-card.lms "$bytecode" "$title" "$report" "build/rendered/readme-$slug.png"
-  "$lmdraw_bin" --dsl "$bytecode" >/dev/null
+  "$lmdraw_bin" --lmcode "$bytecode" >/dev/null
   cp "build/rendered/readme-$slug.png" "examples/renders/$slug.png"
 }
 render_card "LINK AUDIT" build/links.txt check-links

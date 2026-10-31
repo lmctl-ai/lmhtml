@@ -1195,7 +1195,7 @@ void print_schema_summary(dslvm::Registry &reg) {
 int main(int argc, char **argv) {
 #ifdef _WIN32
   // MSVCRT text mode would translate \n to \r\n on stdout/stderr, breaking
-  // --dsl-schema --json byte identity and the one-line JSON result protocol.
+  // --lmcode-schema --json byte identity and the one-line JSON result protocol.
   _setmode(_fileno(stdout), _O_BINARY);
   _setmode(_fileno(stderr), _O_BINARY);
 #endif
@@ -1203,7 +1203,7 @@ int main(int argc, char **argv) {
   dslvm::Registry reg;
   register_host(reg, host);
   const std::string usage =
-      "usage: lmhtml --version | --dsl-schema [--json] | --dsl-signatures | [--dry-run] --dsl FILE [FILE ...]\n"
+      "usage: lmhtml --version | --lmcode-schema [--json] | --lmcode-signatures | [--dry-run] --lmcode FILE [FILE ...]\n"
       "       lmhtml lint [--stats] [--json] [--config FILE] [--compare BEFORE] PATHS | md-lint PATHS\n"
       "       lmhtml normalize [--check] PATHS | clean URL-or-file [--base URL] [--markdown] [--check]\n"
       "       lmhtml md2html IN.md [OUT.html] [--template FILE] [--allow-html]\n"
@@ -1213,7 +1213,7 @@ int main(int argc, char **argv) {
     std::cout << "lmhtml " LMHTML_VERSION "\n";
     return std::cout ? 0 : 4;
   }
-  if (argc >= 2 && std::string(argv[1]) == "--dsl-schema") {
+  if (argc >= 2 && std::string(argv[1]) == "--lmcode-schema") {
     if (argc == 2) {
       print_schema_summary(reg);
       return std::cout ? 0 : 4;
@@ -1226,7 +1226,7 @@ int main(int argc, char **argv) {
     std::cerr << usage;
     return 2;
   }
-  if (argc == 2 && std::string(argv[1]) == "--dsl-signatures") {
+  if (argc == 2 && std::string(argv[1]) == "--lmcode-signatures") {
     for (const auto &signature : reg.signatures()) std::cout << signature << "\n";
     return 0;
   }
@@ -1266,7 +1266,7 @@ int main(int argc, char **argv) {
     host.dry_run = true;
     files_at = 3;
   }
-  if (argc <= files_at || std::string(argv[files_at - 1]) != "--dsl") {
+  if (argc <= files_at || std::string(argv[files_at - 1]) != "--lmcode") {
     std::cerr << usage;
     return 2;
   }

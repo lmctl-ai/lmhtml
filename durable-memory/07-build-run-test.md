@@ -32,16 +32,16 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
    The test harness puts its freshly built lmhtml executable first on PATH so
    install= selects that matching local binary. One explicit compatibility
    test retains the legacy schema= declaration.
-3. `--dsl-schema --json` byte-identical to `schema/lmhtml.dsl.json`;
-   `--dsl-schema` summary mechanically lists all 37 registry signatures;
-   `--dsl-signatures` parity diff compiler vs host.
+3. `--lmcode-schema --json` byte-identical to `schema/lmhtml.dsl.json`;
+   `--lmcode-schema` summary mechanically lists all 37 registry signatures;
+   `--lmcode-signatures` parity diff compiler vs host.
 4. Fixture site link check: exactly 4 broken references (missing page,
    same-page anchor, cross-page anchor, `../` escape), text and JSON reports
    pinned byte-for-byte; rerun byte-identical (determinism).
-5. Multi-file `--dsl` ordered execution, shared state, stop-on-first-failure
+5. Multi-file `--lmcode` ordered execution, shared state, stop-on-first-failure
    (marker file must not appear), upfront argument validation (exit 2 before
    anything runs).
-6. Refusals with exit-code pins: usage (2), `--dsl-schema FILE` (2), invalid
+6. Refusals with exit-code pins: usage (2), `--lmcode-schema FILE` (2), invalid
    selector (3), `at()` out of range (3), missing HTML file (3), stubbed
    later-milestone member (3), missing bytecode (3), schema-hash mismatch (3).
 7. Fully static check on the shipped binary.

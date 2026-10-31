@@ -24,8 +24,8 @@ if (args.length === 1 && ['--version', '-v'].includes(args[0])) {
   console.log(`lmscript DSL v${dsl.DSL_VERSION} (${sourceRoot}/dsl.ts)`);
   process.exit(0);
 }
-if (args[0] === '--dsl-signatures') {
-  if (args.length !== 2) { console.error('error: --dsl-signatures needs exactly one schema path'); process.exit(2); }
+if (args[0] === '--lmcode-signatures') {
+  if (args.length !== 2) { console.error('error: --lmcode-signatures needs exactly one schema path'); process.exit(2); }
   const schemaPath = resolve(args[1]);
   const schema = dsl.parseDslSchema(readFileSync(schemaPath), schemaPath);
   console.log(dsl.canonicalSignatures(schema).join('\n'));

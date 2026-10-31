@@ -1,5 +1,5 @@
 # Windows checkouts must not convert to CRLF: sdk.lock pins the vendored
-# header by sha256 and --dsl-schema --json is asserted byte-identical.
+# header by sha256 and --lmcode-schema --json is asserted byte-identical.
 # text=auto leaves binary files alone: a bare "* eol=lf" forces every file
 # to text, and would rewrite the \r\n inside the PNG signature on commit.
 * text=auto eol=lf

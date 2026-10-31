@@ -42,8 +42,8 @@ heredocs, everything through the real compile→run pipeline.
 
 1. `scripts/sync-sdk.sh --verify` first; lexbor pin check second.
 2. Compile examples, assert `DSLB` magic + version byte 5.
-3. `lmhtml --dsl-schema` byte-identical to `schema/lmhtml.dsl.json`;
-   `--dsl-signatures` parity diff compiler vs host.
+3. `lmhtml --lmcode-schema` byte-identical to `schema/lmhtml.dsl.json`;
+   `--lmcode-signatures` parity diff compiler vs host.
 4. Fixtures under `tests/fixtures/`: `site/` (5 pages + shared header/nav,
    broken links, one class typo), `diff-a.html`/`diff-b.html` (known edits),
    `drift/` (pages with one divergent header). Fixtures are small,
@@ -69,7 +69,7 @@ heredocs, everything through the real compile→run pipeline.
 - **String interpolation `${}` inside DSL**: embedding is an lmscript
   pre-process step only; inside the chunk string building is `+` concat.
 - **Parallel page processing**: the host runs one chunk; multi-file
-  `--dsl a.dslb b.dslb` is sequential. Fine until fixture sites get large.
+  `--lmcode a.dslb b.dslb` is sequential. Fine until fixture sites get large.
 
 ## Risks / open items
 
