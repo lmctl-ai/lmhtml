@@ -75,13 +75,16 @@ html.check_markdown(PATH);
 let index = html.index_markdown(PATH, "other.md\\nfeatures.md");
 report.fail_if_any();
 end _lmcode_
-savedsl(p, ARGV[0]);
+r = run_lmcode(p);
+require(r.ok, "Markdown DSL program failed");
 '''.replace('PATH',json.dumps(notes.as_posix())).replace('OUTPUT',json.dumps((work/'dsl.html').as_posix()))
     (work/'test.lms').write_text(source)
-    command=[compiler,str(work/'test.lms'),str(work/'test.dslb')]
+    command=[compiler,str(work/'test.lms')]
     # npm's extensionless launcher is a shell script on Windows, not a PE file.
     if os.name == 'nt': command=[sys.argv[3], '-c', 'exec "$@"', 'lmhtml-test', *command]
-    subprocess.run(command,check=True)
-    run('--lmcode',work/'test.dslb')
+    # run_lmcode executes the program on the host found first on PATH: this build.
+    env=dict(os.environ, PATH=os.pathsep.join([str(Path(host).parent), os.environ.get('PATH','')]))
+    subprocess.run(command,check=True,env=env)
+    count += 1
     assert b'post-processed' in (work/'dsl.html').read_bytes()
 print(f'PASS: {count} Markdown input CLI/DSL checks')

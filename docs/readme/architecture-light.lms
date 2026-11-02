@@ -1,4 +1,3 @@
-out = ARGV.len() > 0 ? ARGV[0] : "build/readme-architecture-light.dslb";
 p = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(1400, 500, "#f4f3ee");
 scene.text(64.0, 62.0, 27.0, "From source to a verified HTML change", "#142b39").set_attr("font-weight", "700");
@@ -35,4 +34,5 @@ let pages = scene.line(974.0, 380.0, 974.0, 352.0, "#24796f", 2.0); pages.set_at
 scene.text(64.0, 472.0, 15.0, "Compile once. Analyze real files. Save only the edits the script requests.", "#536b76");
 scene.render_png("build/rendered/readme-architecture-light.png", 1400, 500, 1);
 end _lmcode_
-savedsl(p, out);
+r = run_lmcode(p);
+require(r.ok, "architecture-light failed");

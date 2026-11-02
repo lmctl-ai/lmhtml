@@ -16,26 +16,27 @@ host_for() {
 }
 lmhtml_bin="${LMHTML_BIN:-$(host_for lmhtml build/lmhtml)}"
 lmdraw_bin="${LMDRAW_BIN:-$(host_for lmdraw build/lmdraw)}"
-[[ "$($lmhtml_bin --version)" == "lmhtml 0.7.4" ]] || { echo "error: expected released lmhtml 0.7.4" >&2; exit 2; }
+want_lmhtml="lmhtml $(sed -n 's/^project(lmhtml VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+[[ "$($lmhtml_bin --version)" == "$want_lmhtml" ]] || { echo "error: expected $want_lmhtml (the version in CMakeLists.txt)" >&2; exit 2; }
 [[ "$($lmdraw_bin --version)" == "lmdraw 0.2.0" ]] || { echo "error: expected lmdraw 0.2.0" >&2; exit 2; }
 
+# Each script runs its program with run_lmcode; put the chosen hosts first on PATH.
+PATH="$(dirname "$lmhtml_bin"):$(dirname "$lmdraw_bin"):$PATH"
+export PATH
 mkdir -p build/rendered examples/renders
 examples=(check-links class-typos diff-pages make-template rewrite-nav)
 for name in "${examples[@]}"; do
-  "$compiler" "examples/$name.lms" "build/readme-$name.dslb"
-  "$lmhtml_bin" --lmcode "build/readme-$name.dslb" >/dev/null
+  "$compiler" "examples/$name.lms" >/dev/null
 done
 
 for name in hero-light hero-dark architecture-light architecture-dark; do
-  "$compiler" "docs/readme/$name.lms" "build/readme-$name.dslb"
-  "$lmdraw_bin" --lmcode "build/readme-$name.dslb" >/dev/null
+  "$compiler" "docs/readme/$name.lms" >/dev/null
   cp "build/rendered/readme-$name.png" "docs/readme/$name.png"
 done
 
 render_card() {
-  local title="$1" report="$2" slug="$3" bytecode="build/readme-gallery-card.dslb"
-  "$compiler" docs/readme/gallery-card.lms "$bytecode" "$title" "$report" "build/rendered/readme-$slug.png"
-  "$lmdraw_bin" --lmcode "$bytecode" >/dev/null
+  local title="$1" report="$2" slug="$3"
+  "$compiler" docs/readme/gallery-card.lms "$title" "$report" "build/rendered/readme-$slug.png" >/dev/null
   cp "build/rendered/readme-$slug.png" "examples/renders/$slug.png"
 }
 render_card "LINK AUDIT" build/links.txt check-links

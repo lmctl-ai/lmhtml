@@ -13,9 +13,11 @@ let filtered = html.parse("<body><nav>x</nav><main><!-- <nav>x</nav> --><nav>kee
 if (filtered.source_inner("body", "nav footer") != "<main><!-- <nav>x</nav> --><nav>keep</nav><p>content</p></main>") { report.add("fail", "filtered", 0, "nested content or comment changed"); }
 if (html.parse("<nav>x</nav><!-- <nav>x</nav> --><h1>title</h1>").source_inner("", "nav") != "<!-- <nav>x</nav> --><h1>title</h1>") { report.add("fail", "filtered", 0, "fragment source filter"); }
 if (html.parse("<!-- <!doctype html> --><!DOCTYPE html><h1>X</h1>").source_inner("", "!doctype") != "<!-- <!doctype html> --><h1>X</h1>") { report.add("fail", "filtered", 0, "doctype fragment filter"); }
-html.save(raw, ${ARGV[1]});
-if (html.load(${ARGV[1]}).source() != raw) { report.add("fail", "save", 0, "raw save changed bytes"); }
-report.write_text(${ARGV[2]});
+html.save(raw, ${ARGV[0]});
+if (html.load(${ARGV[0]}).source() != raw) { report.add("fail", "save", 0, "raw save changed bytes"); }
+report.write_text(${ARGV[1]});
 report.fail_if_any();
 end _lmcode_
-savedsl(p, ARGV[0]);
+r = run_lmcode(p);
+println(json_stringify(r));
+require(r.ok, "source checks failed");

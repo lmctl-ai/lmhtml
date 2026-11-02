@@ -15,7 +15,9 @@ equal("<blockquote><p>Quote</p><p>Again</p></blockquote>", "> Quote\n>\n> Again\
 equal("<dl><dt>Term</dt><dd>Definition</dd></dl><hr><h4>End</h4>", "**Term**\n\nDefinition\n\n---\n\n#### End\n");
 equal("<p>- literal bullet</p><p>1. literal number</p><p>2) literal number</p>", "\\- literal bullet\n\n1\\. literal number\n\n2\\) literal number\n");
 equal("<h1>Title</h1>\n  <p>Text</p>\n<p><em>A</em> <strong>B</strong></p>\n", "# Title\n\nText\n\n*A* **B**\n");
-report.write_text(${ARGV[1]});
+report.write_text(${ARGV[0]});
 report.fail_if_any();
 end _lmcode_
-savedsl(p, ARGV[0]);
+r = run_lmcode(p);
+println(json_stringify(r));
+require(r.ok, "markdown checks failed");

@@ -2,9 +2,10 @@
 
 Only --lmcode, --lmcode-schema and --lmcode-signatures select the host language
 protocol. Retired options are usage exit 2 before input effects; new metadata and
-execution keep existing error/result behavior. DSLB magic and .dslb paths remain.
+execution answer with the SDK's single invocation envelope (16-invocation-envelope.md).
+Program files are private files written by `run_lmcode`; there is no public `.dslb` workflow.
 
-The consumer SDK is refreshed through sync-sdk.sh at 20325f7. Compiler probes,
+The consumer SDK is refreshed through sync-sdk.sh (now at 7cf0916). Compiler probes,
 bytecode checks and standard signature counts now verify actual v6/206-member
 capability instead of historical package-version strings. Original parser controls
 fail for every retired mode; renamed controls pass before normal integration.

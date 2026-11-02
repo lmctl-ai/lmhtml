@@ -1,4 +1,3 @@
-out = ARGV.len() > 0 ? ARGV[0] : "build/readme-hero-light.dslb";
 p = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(1440, 600, "#f4f3ee");
 
@@ -48,4 +47,5 @@ right.set_attr("marker-end", "arrow");
 scene.text(72.0, 574.0, 14.0, "HTML in. Clear findings and deliberate edits out.", "#617782");
 scene.render_png("build/rendered/readme-hero-light.png", 1440, 600, 1);
 end _lmcode_
-savedsl(p, out);
+r = run_lmcode(p);
+require(r.ok, "hero-light failed");

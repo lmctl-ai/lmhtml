@@ -10,9 +10,9 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 - lexbor pinned by `lexbor.lock` at `f4cbbcd9`, shallow-fetched into
   git-ignored `third_party/lexbor` by `scripts/sync-lexbor.sh`
   (`--verify` is the second test check).
-- Compiler: `scripts/select-compiler.sh` probes a real chunk and requires
-  `DSLB\x00\x05`; requires a compatible compiler on `PATH` or an explicit `LMSCRIPT_BIN`. The optional
-  source adapter requires an explicit `LMSCRIPT_SOURCE` path and accepts version 5 only.
+- Compiler: `scripts/select-compiler.sh` probes with `lmscript --check` on an `_lmcode_`
+  block; it needs a compatible compiler on `PATH` or an explicit `LMSCRIPT_BIN`
+  (staging 0.2.454+ for `run_lmcode`). The source adapter was removed (2026-11-02).
 
 ## Build
 
@@ -28,7 +28,7 @@ Machine checked (2026-10-18/19), aarch64 Linux, 4 cores, builds nice'd
 `./test.sh` → **PASS: 56 checks** (release and sanitize alike):
 
 1. sdk.lock + lexbor.lock pin verification.
-2. All user examples compile with cli and install declarations as bytecode v5.
+2. All user examples run through `run_lmcode` (2026-11-02; previously compiled to bytecode v5 files).
    The test harness puts its freshly built lmhtml executable first on PATH so
    install= selects that matching local binary. One explicit compatibility
    test retains the legacy schema= declaration.

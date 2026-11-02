@@ -7,7 +7,7 @@ Each milestone ends green: `test.sh` PASS, committed, pushed.
 - **M1 — skeleton + link check** (end-to-end first):
   repo scaffolding mirroring lmcad (`scripts/sync-sdk.sh` + `sdk.lock`,
   `scripts/sync-lexbor.sh` + `lexbor.lock` per 02-lexbor-static.md,
-  `scripts/lmscript-source.{sh,mjs}` adapter, CMake with embedded
+  `scripts/lmscript-source.{sh,mjs}` adapter (removed 2026-11-02), CMake with embedded
   `schema/lmhtml.dsl.json`, `-static-libstdc++ -static-libgcc` +
   `LMHTML_FULL_STATIC`); C++ host with arena-owned `Doc`/`Node` handles and
   host-side argument validation (the VM trusts compiler-produced bytecode);
@@ -69,7 +69,7 @@ heredocs, everything through the real compile→run pipeline.
 - **String interpolation `${}` inside DSL**: embedding is an lmscript
   pre-process step only; inside the chunk string building is `+` concat.
 - **Parallel page processing**: the host runs one chunk; multi-file
-  `--lmcode a.dslb b.dslb` is sequential. Fine until fixture sites get large.
+  Several programs in one `--lmcode` run are sequential. Fine until fixture sites get large.
 
 ## Risks / open items
 

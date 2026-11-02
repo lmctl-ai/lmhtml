@@ -24,7 +24,7 @@
    be an improvement; not scheduled.
 
 5. **`${}` embedding works only outside the chunk** (lmscript pre-process).
-   Inside `_dsl_`, string building is `+` concatenation — fine, but easy to
+   Inside `_lmcode_`, string building is `+` concatenation — fine, but easy to
    forget when moving code between the two layers.
 
 ## Host / wiring open items
@@ -57,8 +57,6 @@
 
 ## Compiler spelling compatibility
 
-`scripts/lmscript-source.mjs` remains a source-checkout adapter whose standalone
-block matcher recognizes `_dsl_` only. The published lmscript 0.2.420 supports
-both `_dsl_` and `_lmcode_`; the adapter is optional and CI uses the published
-compiler. `test.sh` retains one `_dsl_ schema="..."` fixture to verify the
-legacy spelling.
+The `_dsl_` spelling and the `scripts/lmscript-source.{sh,mjs}` adapter are gone
+(2026-11-02): the current compiler only knows `_lmcode_` and `run_lmcode`. `test.sh`
+keeps one file-only `_lmcode_ schema="..."` fixture, run with an explicit command.

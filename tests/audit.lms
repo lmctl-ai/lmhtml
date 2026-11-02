@@ -15,7 +15,9 @@ let bad = html.parse("<p><em>text</p>");
 require_ok(bad.markup_errors().at(0) == "</p> closes <em>", "audit observes tokens before repair");
 require_ok(html.parse("<ul><li>one<li>two</ul>").markup_errors().len() > 0, "strict explicit end tags");
 require_ok(html.parse("<p title=one TITLE=two>text</p>").markup_errors().at(0) == "duplicate attribute title on <p>", "duplicate attributes before repair");
-report.write_text(${ARGV[1]});
+report.write_text(${ARGV[0]});
 report.fail_if_any();
 end _lmcode_
-savedsl(p, ARGV[0]);
+r = run_lmcode(p);
+println(json_stringify(r));
+require(r.ok, "audit checks failed");

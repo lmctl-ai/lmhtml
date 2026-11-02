@@ -31,7 +31,7 @@
 
 ## How it works
 
-This diagram is rendered by lmdraw from [architecture-light.lms](docs/readme/architecture-light.lms) and [architecture-dark.lms](docs/readme/architecture-dark.lms). It shows the real compiler, schema, bytecode, host and page-file flow.
+This diagram is rendered by lmdraw from [architecture-light.lms](docs/readme/architecture-light.lms) and [architecture-dark.lms](docs/readme/architecture-dark.lms). It shows the real compiler, schema, bytecode, host and page-file flow. A script runs each `_lmcode_` block with `r = run_lmcode(p)`: lmscript compiles the block and starts `lmhtml --lmcode`, which answers with one result envelope (`r.ok`, `r.result`, or a failure with its phase: exit 3 for a load or run error, 4 when `Report.fail_if_any` finds problems). Programs added to one `lmcode_build` run in a single host process, in order.
 
 <p align="center">
   <picture>
@@ -49,7 +49,7 @@ lmctl init
 lmctl autorun lmhtml_solo
 ```
 
-For a team review, run `lmctl autorun lmhtml_trio` instead; both names resolve to the published solo and trio scripts. The [get started guide](https://lmctl.com/tools/lmhtml/get_started.html) explains provider setup and the [release page](https://github.com/lmctl-ai/lmhtml/releases) has native binaries. Custom tool scripts need lmscript 0.2.420 or newer; declare cli="lmhtml" and install="github:lmctl-ai/lmhtml@latest" on the _dsl_ line so lmscript fetches the host schema automatically.
+For a team review, run `lmctl autorun lmhtml_trio` instead; both names resolve to the published solo and trio scripts. The [get started guide](https://lmctl.com/tools/lmhtml/get_started.html) explains provider setup and the [release page](https://github.com/lmctl-ai/lmhtml/releases) has native binaries. Custom tool scripts need lmscript 0.2.454 or newer (for run_lmcode); declare cli="lmhtml" and install="github:lmctl-ai/lmhtml@latest" on the _lmcode_ line so lmscript fetches the host schema automatically.
 
 Linux binaries dynamically link only the system glibc (minimum glibc 2.35); Lexbor and the C++ runtimes are static. macOS uses system libraries and Windows uses the static MinGW runtime.
 

@@ -1,5 +1,4 @@
 build*/
 third_party/
-*.dslb
 
 /schema/lmhtml.dsl.json

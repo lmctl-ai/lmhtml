@@ -1,6 +1,6 @@
 # lmhtml durable memory
 
-`lmhtml` is an lmscript `_dsl_` host embedding Lexbor for HTML5 parsing, DOM manipulation, CSS selector queries, structural diffing, and templating. Linux release binaries dynamically link only system glibc (minimum 2.35); application libraries and C++ runtimes are static.
+`lmhtml` is an lmscript `_lmcode_` host embedding Lexbor for HTML5 parsing, DOM manipulation, CSS selector queries, structural diffing, and templating. Linux release binaries dynamically link only system glibc (minimum 2.35); application libraries and C++ runtimes are static.
 Repository: https://github.com/lmctl-ai/lmhtml.
 
 ## 60-second takeover
@@ -29,6 +29,7 @@ cmake --build build --parallel 4      # Build binary at build/lmhtml
 | [11-dogfood.md](11-dogfood.md) | Real-world static site dogfooding (Sphinx, Jekyll, mdBook) |
 | [12-ci.md](12-ci.md) | GitHub Actions 5-platform matrix and compiler setup |
 | [15-sdk-catalog.md](15-sdk-catalog.md) | SDK string and collection catalog integration, glob matching, and `sdk.lock` |
+| [16-invocation-envelope.md](16-invocation-envelope.md) | `run_lmcode`, the one-envelope host reply (exit 2/3/4, dry metadata) and how test.sh runs fixtures |
 
 ## SDK pin and sync
 
@@ -40,8 +41,8 @@ scripts/sync-sdk.sh                   # Refetches pinned headers and verifies sh
 ## Adding an example or function
 
 ### Adding an example
-1. Create `examples/<name>.lms` using `_dsl_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest"`.
-2. Run script: `build/lmhtml run examples/<name>.lms` or via `lmscript`.
+1. Create `examples/<name>.lms` with `p = _lmcode_ cli="lmhtml" install="github:lmctl-ai/lmhtml@latest";` ... `end _lmcode_`, then `r = run_lmcode(p); require(r.ok, "<name> failed");`.
+2. Run it: `PATH=build:$PATH lmscript examples/<name>.lms` (this build first on PATH).
 3. Add the example to `./test.sh` test run list.
 4. Add any visual/terminal output to `docs/images/<name>.png` and update `README.md` demo table with `lmctl autorun` command.
 

@@ -30,7 +30,7 @@ cat > "$OUT/lmhtml/package.json" <<EOF
 {
   "name": "lmhtml",
   "version": "$VER",
-  "description": "Static native CLI for bulk HTML work (lexbor + lmscript _dsl_ bytecode)",
+  "description": "Static native CLI for bulk HTML work (lexbor + lmscript _lmcode_ programs)",
   "license": "$LICENSE_FIELD",
   "private": true,
   "bin": { "lmhtml": "bin/lmhtml.js" },

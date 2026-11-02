@@ -11,6 +11,7 @@
 #include "schema_embedded.hpp"
 #include "strlib.hpp"
 #include <algorithm>
+#include <optional>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
@@ -1261,22 +1262,42 @@ int main(int argc, char **argv) {
     } catch(const std::string &e) {std::cerr<<e<<"\n";return 3;}
       catch(const std::exception &e) {std::cerr<<e.what()<<"\n";return 3;}
   }
+  // --lmcode: one invocation envelope (lmcode-cpp InvocationResults). Exit 0 success,
+  // 2 cli, 3 load/run, 4 application (Report.fail_if_any) or output failure.
   int files_at = 2;
+  bool dry_flag = false;
   if (argc >= 2 && std::string(argv[1]) == "--dry-run") {
-    host.dry_run = true;
+    dry_flag = true;
     files_at = 3;
   }
   if (argc <= files_at || std::string(argv[files_at - 1]) != "--lmcode") {
     std::cerr << usage;
-    return 2;
+    return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "expected [--dry-run] --lmcode FILE [FILE ...]"));
   }
   // Validate the complete invocation before any block can write output.
+  std::vector<std::string> files;
   for (int i = files_at; i < argc; i++) {
     if (std::string(argv[i]).empty() || std::string(argv[i]).rfind("--", 0) == 0) {
       std::cerr << usage;
-      return 2;
+      return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "invalid program file argument"));
     }
+    files.push_back(argv[i]);
   }
+  // Dry mode is invocation-wide: run_lmcode supplies it in LMCODE_INVOCATION_FILE metadata.
+  // The standalone --dry-run flag requests the same mode when no metadata is present.
+  std::optional<dslvm::InvocationResults> results_holder;
+  try {
+    const char *manifest = std::getenv("LMCODE_INVOCATION_FILE");
+    if (dry_flag && !manifest) results_holder.emplace(dslvm::InvocationResults::from_command(files, true));
+    else results_holder.emplace(dslvm::InvocationResults::from_command(files));
+  } catch (const dslvm::Error &error) {
+    return dslvm::failure_frame("cli", error);
+  }
+  auto &results = *results_holder;
+  if (dry_flag && !results.dry()) {
+    return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "--dry-run contradicts real-mode invocation metadata"));
+  }
+  host.dry_run = results.dry();
   const std::string schema(reinterpret_cast<const char *>(lmhtml::embedded_schema),
                            lmhtml::embedded_schema_size);
   dslvm::Context context;
@@ -1284,21 +1305,32 @@ int main(int argc, char **argv) {
   context.set("report", &host.report);
   // Load and verify every file first: a missing or corrupt later file must
   // not leave the earlier blocks' output half-written.
-  std::vector<dslvm::Program> programs;
-  for (int i = files_at; i < argc; i++) {
+  std::vector<std::pair<size_t, dslvm::Program>> programs;
+  dslvm::ResultContract contract;
+  try {
+    contract = dslvm::ResultContract::from_schema(schema);
+  } catch (const dslvm::Error &error) {
+    results.fail(std::nullopt, "load", error);
+    return results.write_frame(std::cout);
+  }
+  for (const auto &part : results.registrations()) {
     try {
-      programs.push_back(dslvm::Program::load(dslvm::read_file(argv[i]), schema, reg));
+      programs.emplace_back(part.index, dslvm::Program::load(dslvm::read_file(part.file), schema, reg));
     } catch (const dslvm::Error &error) {
-      return dslvm::report_error("load", error);
+      results.fail(part.index, "load", error);
+      return results.write_frame(std::cout);
     }
   }
-  for (const auto &program : programs) {
+  for (auto &[index, program] : programs) {
     try {
+      results.select(index, reg, contract);
       program.run(context, reg);
+      results.complete(index);
     } catch (const dslvm::Error &error) {
-      return dslvm::report_error("run", error);
+      // Report.fail_if_any raises APP_FAIL: an application failure (exit 4), not a host fault.
+      results.fail(index, error.code == "APP_FAIL" ? "app" : "run", error);
+      break;
     }
-    dslvm::report_ok();
   }
-  return 0;
+  return results.write_frame(std::cout);
 }
