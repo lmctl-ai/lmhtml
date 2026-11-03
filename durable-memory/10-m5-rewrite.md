@@ -32,10 +32,10 @@ Machine checked (2026-10-19), same box. Measured.
   mode of replaced files was lost, a short write left the temp behind, and
   `save(d, "dir/")` created `dir` before failing. Owner/group and ACLs of a
   replaced file are not preserved (the new inode belongs to the runner).
-- `--dry-run` CLI flag: `Html.save` writes nothing and reports a
-  `would-save` finding (`N bytes, new|changed|unchanged`). Typical flow:
-  dry-run, inspect findings, run for real; a dry-run right after a real run
-  reports `unchanged` (idempotency probe).
+- WP220 correction to `--dry-run`: invocation mode now reaches the VM Context.
+  Passive reads run, while mutations and product/report writers are skipped.
+  The former `would-save` report-file behavior is superseded; previews create
+  no output and leave existing output files byte-identical.
 - `examples/rewrite-nav.lms`: canonical nav + footer spliced into all 5
   fixture pages (2 drifted), saved to `build/rewritten/`, then M3 re-diff
   proves convergence (only `main` text differs: 2 findings per pair).

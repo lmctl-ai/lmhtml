@@ -71,3 +71,9 @@ Made by **Lattice Systems LLC**.
 ## Bulk attributes
 
 Node.set_attrs accepts a typed StrMap, for example node.set_attrs(%(title => "Ready", ("data-state") => "ok")). Attribute names are validated before the first DOM edit, so a bad late name leaves the node unchanged. set_attr remains available. Node.get_attrs(qw(title data-state absent)) returns a fresh StrMap containing requested present attributes, including empty values; absent names are omitted. Editing that result does not edit the DOM. Dry callbacks do not mutate nodes and tolerate skipped/null receivers. These methods require a host that lists them in --lmcode-signatures.
+
+Bulk attribute validation is atomic: `set_attrs` validates ALL supplied names and
+values before its first edit. A bad first or second key leaves all attributes
+unchanged; no prefix of the batch is applied. This does not promise rollback for
+unrelated native allocation failures. Empty input returns the receiver. See
+[bulk attribute contract](durable-memory/bulk-attrs.md).

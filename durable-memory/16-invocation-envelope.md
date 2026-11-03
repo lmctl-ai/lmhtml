@@ -22,8 +22,10 @@ and reads exactly one terminal frame back. Programs added to one
   metadata that `run_lmcode` writes (`lmscript --dry-run` sets `dry:true`); the
   envelope then ends with `"dry":true`. The standalone `--dry-run` flag requests
   the same mode when no metadata is present and is refused (cli) if metadata says
-  real mode. As before, dry mode only stops `Html.save` (it reports would-save);
-  reports are still written, because they are how a dry run shows its plan.
+  real mode. The VM Context receives this dry mode. Explicit passive input/DOM
+  reads run; mutation and writer callbacks without a preview are skipped.
+  Bulk setters preserve the concrete node, and bulk getters passively copy it.
+  Neither product files nor report files are written by preview execution.
 
 ## Tests (test.sh)
 

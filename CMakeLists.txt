@@ -50,3 +50,5 @@ endforeach()
 target_link_libraries(lmhtml-bulk-attrs PRIVATE lexbor_static)
 enable_testing()
 add_test(NAME bulk-attrs COMMAND lmhtml-bulk-attrs)
+
+add_test(NAME bulk-attrs-atomic-bad-second-key COMMAND lmhtml-bulk-attrs --atomic-bad-second-key)
