@@ -5,7 +5,7 @@ import json, os, subprocess, sys, tempfile
 root=Path(__file__).resolve().parents[1]
 owner=root.name if root.name in ("lmhtml","lmdraw","lmvideo") else 'lmhtml'
 host=Path(sys.argv[1]).resolve();compiler=sys.argv[2]
-if os.name=="nt":compiler=subprocess.check_output(["bash","-c",'cygpath -u "$1"',"bulk-preview",compiler],encoding="utf-8").strip()
+bash=sys.argv[3] if len(sys.argv)>3 else "bash"
 with tempfile.TemporaryDirectory(prefix="bulk-preview-") as temp:
  work=Path(temp);(work/"build/rendered").mkdir(parents=True)
  schema=root/"schema"/(owner+(".host.json" if owner=="lmhtml" else ".dsl.json"))
@@ -13,7 +13,7 @@ with tempfile.TemporaryDirectory(prefix="bulk-preview-") as temp:
  for label,body,expected in cases:
   source="p=_lmcode_ schema="+json.dumps(str(schema))+";\n"+body+"\nend _lmcode_\nr=run_lmcode(p,{command:"+json.dumps([str(host),"--lmcode","$DSLFILE"])+"});\nprint(json_stringify(r));\n"
   file=work/(label+".lms");file.write_text(source,encoding="utf-8")
-  result=subprocess.run(["bash","-c",'exec "$@"',"bulk-preview",compiler,"--dry-run",str(file)],cwd=work,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,encoding="utf-8")
+  result=subprocess.run([bash,"-c",'exec "$@"',"bulk-preview",compiler,"--dry-run",str(file)],cwd=work,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,encoding="utf-8")
   assert result.returncode==0,(label,result.stdout)
   frames=[]
   for line in result.stdout.splitlines():

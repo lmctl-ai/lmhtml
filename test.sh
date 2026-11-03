@@ -44,7 +44,9 @@ nice -n 19 cmake --build "$BUILD_DIR" -j2 >"$WORK/build.log" 2>&1 ||
   { tail -30 "$WORK/build.log" >&2; fail "cmake build ($BUILD_DIR)"; }
 ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native bulk attrs"
 ok "host build and atomic bulk attrs ($BUILD_DIR)"
-python3 tests/bulk-attrs-preview.py "$HOST" "$LMSCRIPT" || fail "real bulk attribute preview"
+BULK_PREVIEW_BASH="$BASH"
+if command -v cygpath >/dev/null 2>&1; then BULK_PREVIEW_BASH="$(cygpath -m "$BASH")"; fi
+python3 tests/bulk-attrs-preview.py "$HOST" "$LMSCRIPT" "$BULK_PREVIEW_BASH" || fail "real bulk attribute preview"
 ok "real bulk attribute preview envelopes and zero writes"
 python3 tests/check-host-flags.py schema/lmhtml.dsl.json "$HOST" || fail "hard host flag cutover"
 # install= prefers a matching host executable on PATH; put this test build first.
