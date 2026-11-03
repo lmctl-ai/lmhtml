@@ -77,3 +77,5 @@ values before its first edit. A bad first or second key leaves all attributes
 unchanged; no prefix of the batch is applied. This does not promise rollback for
 unrelated native allocation failures. Empty input returns the receiver. See
 [bulk attribute contract](durable-memory/bulk-attrs.md).
+
+[Data input/dry validation example](examples/data-input/README.md) demonstrates format/text strings, existing dry callbacks and the lmscript with header without changing the product schema or SDK.

@@ -52,3 +52,10 @@ enable_testing()
 add_test(NAME bulk-attrs COMMAND lmhtml-bulk-attrs)
 
 add_test(NAME bulk-attrs-atomic-bad-second-key COMMAND lmhtml-bulk-attrs --atomic-bad-second-key)
+
+# Separate runnable example: existing strings/dry slots, no product-schema changes.
+add_executable(lmhtml-data-input examples/data-input/host.cpp)
+target_include_directories(lmhtml-data-input PRIVATE cpp)
+add_executable(lmhtml-data-input-test tests/data-input.cpp)
+target_include_directories(lmhtml-data-input-test PRIVATE cpp)
+add_test(NAME data-input-dry-validation COMMAND lmhtml-data-input-test "${CMAKE_CURRENT_BINARY_DIR}/data-input-unit-sentinel.json")

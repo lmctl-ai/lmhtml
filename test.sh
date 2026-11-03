@@ -42,7 +42,12 @@ cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release ${CMAKE_EXTRA:+"$
   { tail -30 "$WORK/cmake.log" >&2; fail "cmake configure ($BUILD_DIR)"; }
 nice -n 19 cmake --build "$BUILD_DIR" -j2 >"$WORK/build.log" 2>&1 ||
   { tail -30 "$WORK/build.log" >&2; fail "cmake build ($BUILD_DIR)"; }
-ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native bulk attrs"
+ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native contracts"
+if [ -n "${LMSCRIPT_WITH_INPUT:-}" ]; then
+  DATA_INPUT_HOST="$BUILD_DIR/lmhtml-data-input"
+  case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) DATA_INPUT_HOST="$DATA_INPUT_HOST.exe";; esac
+  python3 tests/data-input.py "$DATA_INPUT_HOST" "$LMSCRIPT_WITH_INPUT" || fail "Data dry validation"
+fi
 ok "host build and atomic bulk attrs ($BUILD_DIR)"
 BULK_PREVIEW_BASH="$BASH"
 if command -v cygpath >/dev/null 2>&1; then BULK_PREVIEW_BASH="$(cygpath -m "$BASH")"; fi

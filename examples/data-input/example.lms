@@ -1,0 +1,10 @@
+# Run with tests/data-input.py; it supplies the standalone example host/schema paths.
+const input = _json_;
+{"title":"water 水","data-note":"quoted \" text"}
+end _json_
+p = _lmcode_ schema="schema.json" with=[input.toLmcode("attributes")];
+accept_attributes("json", ${input.toString()});
+$return = attributes();
+end _lmcode_
+r = run_lmcode(p, {command:[ARGV[0], ARGV[1], "--lmcode", "$DSLFILE"]});
+println(json_stringify(r));
