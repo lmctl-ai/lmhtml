@@ -623,8 +623,7 @@ bool glob_path_match(const std::string &rel, const std::string &pat) {
 void checked_method(dslvm::Registry &registry, const char *type, const char *name,
                     std::vector<std::string> params, std::string returns,
                     dslvm::Method callback, dslvm::DryMethod preview = {}) {
-  registry.method(type, name, params, returns,
-                  [params, callback, type, name](void *object, Args &args) {
+  dslvm::Method checked = [params, callback, type, name](void *object, Args &args) {
                     for (size_t i = 0; i < params.size(); i++) {
                       const auto &expected = params[i];
                       const auto &value = args[i];
@@ -639,7 +638,15 @@ void checked_method(dslvm::Registry &registry, const char *type, const char *nam
                                            std::to_string(i + 1) + " must be " + expected);
                     }
                     return translate_errors([&] { return callback(object, args); });
-                  }, std::move(preview));
+                  };
+  // These operations only read/parse invocation-owned input and create in-memory views.
+  // Writers and DOM mutations without an explicit preview use the VM's typed dummies.
+  const bool passive = (std::string(type)=="Html" && (std::string(name)=="parse" || std::string(name)=="load" || std::string(name)=="load_dir")) ||
+      (std::string(type)=="Doc" && (std::string(name)=="select" || std::string(name)=="path")) ||
+      (std::string(type)=="NodeList" && (std::string(name)=="at" || std::string(name)=="len")) ||
+      (std::string(type)=="Node" && (std::string(name)=="attr" || std::string(name)=="has_attr" || std::string(name)=="text" || std::string(name)=="outer_html" || std::string(name)=="parent"));
+  if (!preview.supplied && passive) preview=dslvm::dry(checked);
+  registry.method(type,name,params,returns,std::move(checked),std::move(preview));
 }
 
 void checked_function(dslvm::Registry &r, const char *name, std::vector<std::string> params,
@@ -1319,6 +1326,7 @@ int main(int argc, char **argv) {
   const std::string schema(reinterpret_cast<const char *>(lmhtml::embedded_schema),
                            lmhtml::embedded_schema_size);
   dslvm::Context context;
+  context.set_dry(results.dry());
   context.set("html", &host);
   context.set("report", &host.report);
   // Load and verify every file first: a missing or corrupt later file must

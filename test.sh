@@ -44,6 +44,8 @@ nice -n 19 cmake --build "$BUILD_DIR" -j2 >"$WORK/build.log" 2>&1 ||
   { tail -30 "$WORK/build.log" >&2; fail "cmake build ($BUILD_DIR)"; }
 ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native bulk attrs"
 ok "host build and atomic bulk attrs ($BUILD_DIR)"
+python3 tests/bulk-attrs-preview.py "$HOST" "$LMSCRIPT" || fail "real bulk attribute preview"
+ok "real bulk attribute preview envelopes and zero writes"
 python3 tests/check-host-flags.py schema/lmhtml.dsl.json "$HOST" || fail "hard host flag cutover"
 # install= prefers a matching host executable on PATH; put this test build first.
 LOCAL_HOST_DIR="$(cd "$BUILD_DIR" && pwd)"
@@ -738,13 +740,15 @@ esac
 compile_chunk dry-run 'let d = html.load("tests/fixtures/tpl/p1.html"); d.select("footer").at(0).set_attr("data-x", "1"); html.save(d, "build/dry-run-out.html"); report.write_text("'"$WORK"'/dry.txt");'
 rm -f build/dry-run-out.html
 run_prog --dry-run dry-run >/dev/null || fail "dry-run run"
-[ ! -f build/dry-run-out.html ] || fail "dry-run wrote a file"
-grep -qE '^would-save build/dry-run-out\.html:0: [0-9]+ bytes, new$' "$WORK/dry.txt" || fail "dry-run finding wrong: $(cat "$WORK/dry.txt")"
+[ ! -f build/dry-run-out.html ] && [ ! -f "$WORK/dry.txt" ] || fail "dry-run wrote a file"
 run_prog dry-run >/dev/null || fail "real save after dry-run"
 [ -f build/dry-run-out.html ] || fail "real save wrote nothing"
+cp build/dry-run-out.html "$WORK/real-save.html"
+cp "$WORK/dry.txt" "$WORK/real-report.txt"
 run_prog --dry-run dry-run >/dev/null || fail "dry-run rerun"
-grep -qE 'bytes, unchanged$' "$WORK/dry.txt" || fail "dry-run after save should report unchanged: $(cat "$WORK/dry.txt")"
-ok "dry-run reports would-save and writes nothing; unchanged after real save"
+cmp build/dry-run-out.html "$WORK/real-save.html" || fail "dry-run changed existing output"
+cmp "$WORK/dry.txt" "$WORK/real-report.txt" || fail "dry-run changed existing report"
+ok "dry-run skips product/report writers and preserves existing output"
 
 compile_chunk empty-fragment 'let d = html.parse("<p>x</p>"); d.select("p").at(0).replace_with("");'
 set +e; out="$(run_prog empty-fragment 2>&1)"; code=$?; set -e
