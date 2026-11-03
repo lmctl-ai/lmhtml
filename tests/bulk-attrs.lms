@@ -1,0 +1,12 @@
+p = _lmcode_ schema="../schema/lmhtml.dsl.json";
+let page=html.parse("<div id='n' title='old'></div>");
+let node=page.select("#n").at(0);
+node.set_attrs(%(title => "α", ("data-empty") => ""));
+let got=node.get_attrs(qw(title data-empty absent));
+if (got.len()!=2 || got.get("title")!="α" || !got.has("data-empty") || got.has("absent")) { report.add("fail","bulk",0,"getter round trip"); }
+got.set("title","copy");
+if (node.attr("title")!="α") { report.add("fail","bulk",0,"getter aliases DOM"); }
+report.fail_if_any();
+end _lmcode_
+r=run_lmcode(p,{command:["lmhtml","--lmcode","$DSLFILE"]});
+require(r.ok,"bulk attrs VM round trip failed");

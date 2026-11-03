@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace lmhtml {
 
@@ -61,6 +62,8 @@ void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std
 
 // Mutations (M5). All throw std::string on misuse; inserted nodes are owned
 // by the document like any other node.
+void validate_attr_name(const std::string &name);
+void set_attrs(lxb_dom_node_t *node, const std::vector<std::pair<std::string,std::string>> &attributes);
 void set_attr(lxb_dom_node_t *node, const std::string &name, const std::string &value);
 void remove_node(lxb_dom_node_t *node); // detach; memory stays with the document
 // Parse an HTML fragment in the context of node's parent and splice it in.

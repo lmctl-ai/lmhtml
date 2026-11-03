@@ -245,6 +245,22 @@
             "params": [],
             "returns": "int"
           }
+        ],
+        "set_attrs": [
+          {
+            "params": [
+              "StrMap"
+            ],
+            "returns": "self"
+          }
+        ],
+        "get_attrs": [
+          {
+            "params": [
+              "StrList"
+            ],
+            "returns": "StrMap"
+          }
         ]
       }
     },

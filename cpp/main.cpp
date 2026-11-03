@@ -622,7 +622,7 @@ bool glob_path_match(const std::string &rel, const std::string &pat) {
 
 void checked_method(dslvm::Registry &registry, const char *type, const char *name,
                     std::vector<std::string> params, std::string returns,
-                    dslvm::Method callback) {
+                    dslvm::Method callback, dslvm::DryMethod preview = {}) {
   registry.method(type, name, params, returns,
                   [params, callback, type, name](void *object, Args &args) {
                     for (size_t i = 0; i < params.size(); i++) {
@@ -639,7 +639,7 @@ void checked_method(dslvm::Registry &registry, const char *type, const char *nam
                                            std::to_string(i + 1) + " must be " + expected);
                     }
                     return translate_errors([&] { return callback(object, args); });
-                  });
+                  }, std::move(preview));
 }
 
 void checked_function(dslvm::Registry &r, const char *name, std::vector<std::string> params,
@@ -784,6 +784,24 @@ void register_host(dslvm::Registry &r, Host &h) {
     }
     return Value::object("Node", node);
   });
+  checked_method(r, "Node", "set_attrs", {"StrMap"}, "Node", [](void *p, Args &a) {
+    auto *node = node_of(p, "Node.set_attrs");
+    try { lmhtml::set_attrs(node, static_cast<dslvm::stdlib::StrMap*>(a[0].obj)->entries()); }
+    catch (const std::string &e) { throw dslvm::Error("Node.set_attrs: " + e); }
+    return Value::object("Node", node);
+  }, dslvm::dry(dslvm::Method([](void *p, Args &) { return Value::object("Node", p); })));
+  auto get_attrs = [&r](void *p, Args &a) {
+    auto *node = node_of(p, "Node.get_attrs");
+    auto *out = r.std_collections().make_str_map();
+    for (const auto &name : static_cast<dslvm::stdlib::StrList*>(a[0].obj)->items)
+      if (lmhtml::has_attr(node, name)) out->set(name, lmhtml::attr(node, name));
+    return Value::object("StrMap", out);
+  };
+  checked_method(r, "Node", "get_attrs", {"StrList"}, "StrMap", get_attrs,
+    dslvm::dry(dslvm::Method([&r,get_attrs](void *p, Args &a) {
+      if (!p || !a[0].obj) return Value::object("StrMap", r.dry_collections().make_str_map());
+      return get_attrs(p, a);
+    })));
   checked_method(r, "Node", "text", {}, "string", [](void *p, Args &) {
     return Value::string(lmhtml::text_content(node_of(p, "Node.text")));
   });

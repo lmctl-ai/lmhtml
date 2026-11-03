@@ -42,12 +42,15 @@ cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release ${CMAKE_EXTRA:+"$
   { tail -30 "$WORK/cmake.log" >&2; fail "cmake configure ($BUILD_DIR)"; }
 nice -n 19 cmake --build "$BUILD_DIR" -j2 >"$WORK/build.log" 2>&1 ||
   { tail -30 "$WORK/build.log" >&2; fail "cmake build ($BUILD_DIR)"; }
-ok "host build ($BUILD_DIR)"
+ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native bulk attrs"
+ok "host build and atomic bulk attrs ($BUILD_DIR)"
 python3 tests/check-host-flags.py schema/lmhtml.dsl.json "$HOST" || fail "hard host flag cutover"
 # install= prefers a matching host executable on PATH; put this test build first.
 LOCAL_HOST_DIR="$(cd "$BUILD_DIR" && pwd)"
 PATH="$LOCAL_HOST_DIR:$PATH"
 export PATH
+"$LMSCRIPT" tests/bulk-attrs.lms || fail "bulk attrs VM contract"
+ok "bulk attrs typed map and getter copy run through the VM"
 
 # Programs run through lmscript's run_lmcode (the compiler emits no bytecode files).
 # hostwrap.sh stands between run_lmcode and this build's host: it records the host's

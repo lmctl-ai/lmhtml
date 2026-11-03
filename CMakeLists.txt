@@ -41,3 +41,12 @@ if((CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang") AND NOT APPLE)
     target_link_options(lmhtml PRIVATE -static)
   endif()
 endif()
+
+# Same host implementation, inspected directly after a rejected callback.
+add_executable(lmhtml-bulk-attrs tests/bulk_attrs.cpp cpp/html.cpp cpp/strlib.cpp cpp/analyze.cpp cpp/plain.cpp cpp/markdown_input.cpp cpp/md4c/md4c.c cpp/md4c/md4c-html.c cpp/md4c/entity.c)
+foreach(property INCLUDE_DIRECTORIES COMPILE_DEFINITIONS COMPILE_OPTIONS LINK_OPTIONS)
+  set_property(TARGET lmhtml-bulk-attrs PROPERTY ${property} $<TARGET_PROPERTY:lmhtml,${property}>)
+endforeach()
+target_link_libraries(lmhtml-bulk-attrs PRIVATE lexbor_static)
+enable_testing()
+add_test(NAME bulk-attrs COMMAND lmhtml-bulk-attrs)

@@ -589,9 +589,7 @@ void css_names(Document &doc, std::vector<std::string> &classes, std::vector<std
   ids.assign(id_set.begin(), id_set.end());
 }
 
-void set_attr(lxb_dom_node_t *node, const std::string &name, const std::string &value) {
-  lxb_dom_element_t *el = as_element(node);
-  if (!el) throw std::string("set_attr on a non-element node");
+void validate_attr_name(const std::string &name) {
   // A name the tokenizer could not produce would serialize as markup
   // (set_attr("x><script>...", "")) or as several attributes.
   if (name.empty()) throw std::string("empty attribute name");
@@ -599,6 +597,17 @@ void set_attr(lxb_dom_node_t *node, const std::string &name, const std::string &
     if (c <= 0x20 || c == 0x7f || c == '"' || c == '\'' || c == '>' || c == '/' || c == '=' ||
         c == '<')
       throw std::string("invalid attribute name: " + name);
+}
+void set_attrs(lxb_dom_node_t *node, const std::vector<std::pair<std::string,std::string>> &attributes) {
+  if (!as_element(node)) throw std::string("set_attrs on a non-element node");
+  // Complete key validation precedes the first DOM write.
+  for (const auto &entry : attributes) validate_attr_name(entry.first);
+  for (const auto &entry : attributes) set_attr(node, entry.first, entry.second);
+}
+void set_attr(lxb_dom_node_t *node, const std::string &name, const std::string &value) {
+  lxb_dom_element_t *el = as_element(node);
+  if (!el) throw std::string("set_attr on a non-element node");
+  validate_attr_name(name);
   if (!lxb_dom_element_set_attribute(el, reinterpret_cast<const lxb_char_t *>(name.data()),
                                      name.size(),
                                      reinterpret_cast<const lxb_char_t *>(value.data()),
