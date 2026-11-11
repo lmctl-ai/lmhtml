@@ -240,6 +240,22 @@
             "returns": "Node"
           }
         ],
+        "append_html": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Node"
+          }
+        ],
+        "prepend_html": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Node"
+          }
+        ],
         "hash": [
           {
             "params": [],

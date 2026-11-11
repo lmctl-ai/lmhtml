@@ -70,6 +70,7 @@ void remove_node(lxb_dom_node_t *node); // detach; memory stays with the documen
 // Return the first inserted node. Empty fragments are an error.
 lxb_dom_node_t *replace_with_html(lxb_dom_node_t *node, const std::string &html);
 lxb_dom_node_t *insert_html(lxb_dom_node_t *node, const std::string &html, bool before);
+lxb_dom_node_t *append_html(lxb_dom_node_t *node, const std::string &html, bool at_start);
 // Full document serialization (doctype included when present).
 std::string document_html(Document &doc);
 std::string source_element(Document &doc, const std::string &tag, bool inner);

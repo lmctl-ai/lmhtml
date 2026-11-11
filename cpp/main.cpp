@@ -859,6 +859,20 @@ void register_host(dslvm::Registry &r, Host &h) {
       throw dslvm::Error("Node.insert_after: " + e);
     }
   });
+  checked_method(r, "Node", "append_html", {"string"}, "Node", [](void *p, Args &a) {
+    try {
+      return Value::object("Node", lmhtml::append_html(node_of(p, "Node.append_html"), a[0].s, false));
+    } catch (const std::string &e) {
+      throw dslvm::Error("Node.append_html: " + e);
+    }
+  });
+  checked_method(r, "Node", "prepend_html", {"string"}, "Node", [](void *p, Args &a) {
+    try {
+      return Value::object("Node", lmhtml::append_html(node_of(p, "Node.prepend_html"), a[0].s, true));
+    } catch (const std::string &e) {
+      throw dslvm::Error("Node.prepend_html: " + e);
+    }
+  });
   checked_method(r, "Node", "hash", {}, "int", [](void *p, Args &) {
     return Value::integer(static_cast<int64_t>(lmhtml::subtree_hash(node_of(p, "Node.hash"))));
   });

@@ -620,22 +620,15 @@ void remove_node(lxb_dom_node_t *node) {
   lxb_dom_node_remove(node);
 }
 
-static lxb_dom_node_t *splice_fragment(lxb_dom_node_t *node, const std::string &html,
-                                       bool before, bool replace) {
-  lxb_dom_node_t *parent = node->parent;
-  if (!parent) throw std::string("cannot splice at a node with no parent");
-  // Fragments parsed in the <html> context come back as a new <head> and
-  // <body>; next to the root they would replace the whole document. Splice
-  // inside <head>/<body> instead.
-  if (parent->type != LXB_DOM_NODE_TYPE_ELEMENT || tag_name(parent) == "html")
-    throw std::string("cannot splice at <" + tag_name(node) +
-                      ">: select a node inside <head> or <body>");
+// Parse `html` as a fragment whose context element is `parent`, enforcing the
+// nesting cap for children placed directly under `parent`.
+static lxb_dom_node_t *parse_checked_fragment(lxb_dom_node_t *parent, const std::string &html) {
   lxb_dom_element_t *context = lxb_dom_interface_element(parent);
   check_depth_prescan(html, "fragment");
   size_t parent_depth = 0;
   for (lxb_dom_node_t *n = parent; n; n = n->parent) parent_depth++;
   lxb_dom_node_t *frag = lxb_html_document_parse_fragment(
-      lxb_html_interface_document(node->owner_document), context,
+      lxb_html_interface_document(parent->owner_document), context,
       reinterpret_cast<const lxb_char_t *>(html.data()), html.size());
   if (!frag || !frag->first_child) throw std::string("HTML fragment produced no nodes");
   // The tree must stay within MAX_NESTING (diff/hash recurse over it).
@@ -647,6 +640,20 @@ static lxb_dom_node_t *splice_fragment(lxb_dom_node_t *node, const std::string &
       throw std::string("fragment would nest deeper than " + std::to_string(MAX_NESTING));
     for (lxb_dom_node_t *c = n->first_child; c; c = c->next) stack.push_back({c, depth + 1});
   }
+  return frag;
+}
+
+static lxb_dom_node_t *splice_fragment(lxb_dom_node_t *node, const std::string &html,
+                                       bool before, bool replace) {
+  lxb_dom_node_t *parent = node->parent;
+  if (!parent) throw std::string("cannot splice at a node with no parent");
+  // Fragments parsed in the <html> context come back as a new <head> and
+  // <body>; next to the root they would replace the whole document. Splice
+  // inside <head>/<body> instead.
+  if (parent->type != LXB_DOM_NODE_TYPE_ELEMENT || tag_name(parent) == "html")
+    throw std::string("cannot splice at <" + tag_name(node) +
+                      ">: select a node inside <head> or <body>");
+  lxb_dom_node_t *frag = parse_checked_fragment(parent, html);
   lxb_dom_node_t *first = frag->first_child;
   lxb_dom_node_t *anchor = node;
   while (frag->first_child) {
@@ -656,6 +663,23 @@ static lxb_dom_node_t *splice_fragment(lxb_dom_node_t *node, const std::string &
     else { lxb_dom_node_insert_after(anchor, child); anchor = child; }
   }
   if (replace) lxb_dom_node_remove(node);
+  return first;
+}
+
+// Put the fragment inside `node`: after its last child, or before its first.
+lxb_dom_node_t *append_html(lxb_dom_node_t *node, const std::string &html, bool at_start) {
+  if (node->type != LXB_DOM_NODE_TYPE_ELEMENT || tag_name(node) == "html")
+    throw std::string("cannot add children to <" + tag_name(node) +
+                      ">: select an element inside <head> or <body>");
+  lxb_dom_node_t *frag = parse_checked_fragment(node, html);
+  lxb_dom_node_t *first = frag->first_child;
+  lxb_dom_node_t *head = node->first_child;
+  while (frag->first_child) {
+    lxb_dom_node_t *child = frag->first_child;
+    lxb_dom_node_remove(child);
+    if (at_start) { if (head) lxb_dom_node_insert_before(head, child); else lxb_dom_node_insert_child(node, child); }
+    else lxb_dom_node_insert_child(node, child);
+  }
   return first;
 }
 

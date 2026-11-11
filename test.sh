@@ -639,6 +639,13 @@ expect_refusal attr-space 'html.parse("<p>x</p>").select("p").at(0).set_attr("a 
 expect_refusal splice-head 'html.parse("<p>x</p>").select("head").at(0).insert_after("<p>y</p>");' 'select a node inside'
 expect_refusal splice-html 'html.parse("<p>x</p>").select("html").at(0).replace_with("<p>y</p>");' 'select a node inside'
 ok "mutations: deep fragments, injecting attr names, head/body/html splices refused (exit 3)"
+expect_refusal append-html-root 'html.parse("<p>x</p>").select("html").at(0).append_html("<p>y</p>");' 'select an element inside'
+compile_chunk append-html 'let d = html.parse("<body><ol id=a></ol><ul id=b><li>1</li></ul></body>"); d.select("#a").at(0).append_html("<li>x</li><li>y</li>"); d.select("#b").at(0).append_html("<li>2</li>"); d.select("#b").at(0).prepend_html("<li>0</li>"); html.save(d, "build/append-out.html");'
+set +e; out="$(LMH_TIMEOUT=20 run_prog append-html 2>&1)"; code=$?; set -e
+[ "$code" = 0 ] || fail "append_html run failed (exit $code): $out"
+grep -q '<ol id="a"><li>x</li><li>y</li></ol><ul id="b"><li>0</li><li>1</li><li>2</li></ul>' build/append-out.html || fail "append_html/prepend_html placed children wrongly: $(cat build/append-out.html)"
+rm -f build/append-out.html
+ok "append_html/prepend_html fill empty and non-empty containers; html root refused"
 
 printf '<!doctype html><html><head><meta charset="iso-8859-1"></head><body><p>caf\xe9 &copy;</p></body></html>' > "$WORK/latin1.html"
 expect_refusal save-latin1 'html.save(html.load("'"$WORK"'/latin1.html"), "build/latin1-out.html");' 'not valid UTF-8'
