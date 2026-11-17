@@ -98,7 +98,7 @@ jobs:
       # to a commit), so the binary runs on RHEL 8+, Debian 10+, Ubuntu 18.10+. The action gates the floor.
       - name: build and test (linux, glibc 2.28 image)
         if: runner.os == 'Linux' && env.ONLY_OK == 'true'
-        uses: lmctl-ai/.github/actions/oldglibc@4a1a83bcc67cc37a835236ce750eaeef2bc4b455
+        uses: lmctl-ai/.github/actions/oldglibc@08be4ab255c1040796c01df48b0aa5523f5f1268
         with:
           lmctl-version: 0.2.482
           run: |
