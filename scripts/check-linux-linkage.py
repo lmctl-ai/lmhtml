@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Check Rule 14: Linux host dynamically uses only the system glibc loader/libs."""
+import os
 import pathlib
 import re
 import subprocess
 import sys
 
 allowed = {"libc.so.6", "libm.so.6", "libpthread.so.0", "libdl.so.2", "librt.so.1"}
+ceiling = tuple(map(int, os.environ.get("LMHTML_GLIBC_CEILING", "2.35").split(".")))
 
 host = pathlib.Path(sys.argv[1])
 dynamic = subprocess.check_output(["readelf", "-dW", str(host)], text=True)
@@ -19,6 +21,6 @@ interp = subprocess.check_output(["readelf", "-lW", str(host)], text=True)
 if not re.search(r"Requesting program interpreter: .*ld-linux.*\.so", interp):
     raise SystemExit("Linux host has no glibc dynamic loader")
 versions = [tuple(map(int, x.split("."))) for x in re.findall(r"GLIBC_([0-9]+(?:\.[0-9]+)+)", subprocess.check_output(["readelf", "--version-info", "-W", str(host)], text=True))]
-if versions and max(versions) > (2, 35):
-    raise SystemExit("host requires glibc newer than 2.35")
+if versions and max(versions) > ceiling:
+    raise SystemExit(f"host requires glibc newer than {ceiling[0]}.{ceiling[1]}")
 print("dynamic glibc linkage passed: " + ", ".join(needed))

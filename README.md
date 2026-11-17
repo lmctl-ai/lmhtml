@@ -79,3 +79,33 @@ unrelated native allocation failures. Empty input returns the receiver. See
 [bulk attribute contract](durable-memory/bulk-attrs.md).
 
 [Data input/dry validation example](examples/data-input/README.md) demonstrates format/text strings, existing dry callbacks and the lmscript with header without changing the product schema or SDK.
+
+## Standard `lmcode` REST Endpoints and Stateless CLI
+
+`lmhtml` embeds the 226-signature `lmcode_std_v3` standard catalog, so scripts can declare REST endpoints (`RestGet`, `RestPost`, `RestPut`, `RestDelete`, `RestPatch`, `RestHead`, `RestOptions`, `RestHandler`) and stateless CLI commands/options (`CliCommand`, `CliOption`) with `@"..."` annotations and dispatch them via `rest_serve()` or `rest_cli(args)`:
+
+```lms
+p = _lmcode_ cli="lmhtml";
+  @"--selector"
+  fn opt_sel(x: RestExchange) -> void implements CliOption {
+    x.set("selector", x.query("selector"));
+  }
+
+  @"text"
+  fn cmd_text(x: RestExchange) -> void implements CliCommand {
+    let d = html.parse(x.body());
+    let nodes = d.select(x.get("selector"));
+    x.send(str(nodes.len()) + ":" + nodes.at(0).text());
+  }
+
+  @"/health"
+  fn get_health(x: RestExchange) -> void implements RestGet {
+    let d = html.parse("<main><h1>ok</h1></main>");
+    x.json("{\"h1\":\"" + d.select("h1").at(0).text() + "\"}");
+  }
+
+  rest_config("session", "global");
+  $return.cli_out = rest_cli(str_split("--selector=p.lead text -- <article><p class=lead>hello</p></article>", " "));
+  $return.get_out = rest_cli(str_split("/health", " "));
+end _lmcode_
+```

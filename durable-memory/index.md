@@ -30,6 +30,7 @@ cmake --build build --parallel 4      # Build binary at build/lmhtml
 | [12-ci.md](12-ci.md) | GitHub Actions 5-platform matrix and compiler setup |
 | [15-sdk-catalog.md](15-sdk-catalog.md) | SDK string and collection catalog integration, glob matching, and `sdk.lock` |
 | [16-invocation-envelope.md](16-invocation-envelope.md) | `run_lmcode`, the one-envelope host reply (exit 2/3/4, dry metadata) and how test.sh runs fixtures |
+| [17-std-rest-and-cli-interfaces.md](17-std-rest-and-cli-interfaces.md) | `lmcode_std_v3` 226-signature standard catalog, `RestGet` / `CliCommand` / `CliOption`, and `rest_cli` |
 
 ## SDK pin and sync
 

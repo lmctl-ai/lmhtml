@@ -75,7 +75,7 @@ jobs:
           command -v g++ >/dev/null 2>&1 || { echo "no mingw g++ on PATH"; exit 1; }
           g++ --version | head -1
 
-      - name: lmscript compiler (npm @lmctl-ai/lmctl, DSL v5)
+      - name: lmscript compiler (npm @lmctl-ai/lmctl, DSL v6)
         if: env.ONLY_OK == 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -85,9 +85,9 @@ jobs:
         if: env.ONLY_OK == 'true'
         shell: bash
         run: |
-          npm i -g @lmctl-ai/lmctl@staging
+          npm i -g @lmctl-ai/lmctl@0.2.482
           scripts/select-compiler.sh | tee compiler.txt
-          grep -q lmscript compiler.txt || { echo "no v5 compiler available"; exit 1; }
+          grep -q lmscript compiler.txt || { echo "no v6 compiler available"; exit 1; }
 
       - name: python3 shim (windows)
         if: runner.os == 'Windows' && env.ONLY_OK == 'true'

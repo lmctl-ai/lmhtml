@@ -159,7 +159,7 @@ import sys
 work=Path(sys.argv[1])
 registry=set((work/'registry-signatures.txt').read_text().splitlines())
 standard=set((work/'standard-signatures.txt').read_text().splitlines())
-assert len(standard)==206, len(standard)
+assert len(standard)==226, len(standard)
 (work/'host-signatures.txt').write_bytes(''.join(line+'\n' for line in sorted(registry-standard)).encode('utf-8'))
 PYHOST
 diff -u <("$LMSCRIPT" --lmcode-signatures schema/lmhtml.dsl.json --without-std) "$WORK/host-signatures.txt" || fail "host-only registry/compiler signatures differ"
@@ -871,4 +871,30 @@ python3 tests/markdown-input.py "$HOST" "$LMSCRIPT" "$MARKDOWN_TEST_BASH" || fai
 ok "Markdown input, index, templates, site and drift"
 python3 tests/plain.py "$HOST" || fail "plain profile suite"
 ok "plain normalization, lint statistics, comparison and clean extraction"
+
+compile_chunk std-rest-cli '
+@"--selector"
+fn opt_sel(x: RestExchange) -> void implements CliOption {
+  x.set("selector", x.query("selector"));
+}
+@"text"
+fn cmd_text(x: RestExchange) -> void implements CliCommand {
+  let d = html.parse(x.body());
+  let nodes = d.select(x.get("selector"));
+  x.send(str(nodes.len()) + ":" + nodes.at(0).text());
+}
+@"/health"
+fn get_health(x: RestExchange) -> void implements RestGet {
+  let d = html.parse("<main><h1>ok</h1></main>");
+  x.json("{\"h1\":\"" + d.select("h1").at(0).text() + "\"}");
+}
+rest_config("session", "global");
+$return.cli_out = rest_cli(str_split("--selector=p.lead text -- <article><p class=lead>hello</p></article>", " "));
+$return.get_out = rest_cli(str_split("/health", " "));
+'
+out="$(run_prog std-rest-cli)" || fail "std-rest-cli run"
+echo "$out" | grep -qF '"cli_out":"1:hello"' || fail "std-rest-cli cli_out: $out"
+echo "$out" | grep -qF '"get_out":"{\"h1\":\"ok\"}"' || fail "std-rest-cli get_out: $out"
+ok "lmcode std REST endpoints and stateless CLI (RestGet, CliCommand, CliOption, rest_cli)"
+
 echo "PASS: $pass checks"
