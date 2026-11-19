@@ -12,6 +12,8 @@
 [![CI](https://github.com/lmctl-ai/lmhtml/actions/workflows/ci.yml/badge.svg)](https://github.com/lmctl-ai/lmhtml/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+**Documentation:** [lmctl.com/tools/lmhtml](https://www.lmctl.com/tools/lmhtml/) · [skill](https://www.lmctl.com/tools/lmhtml/skill.html) · [guide](https://www.lmctl.com/tools/lmhtml/guide.html) · [reference](https://www.lmctl.com/tools/lmhtml/reference.html) · [tutorial](https://www.lmctl.com/tools/lmhtml/tutorial.html) · [recipes](https://www.lmctl.com/tools/lmhtml/recipes.html)
+
 ## See what lmhtml does
 
 | Link audit | CSS class and ID audit |
