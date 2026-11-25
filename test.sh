@@ -121,6 +121,24 @@ for i in 0 1 2 3 4; do
 done
 ok "examples compile with $COMPILER_SOURCE as bytecode v6 (one builder invocation, 5 parts)"
 
+cat >"$WORK/extract-table.html" <<'HTML'
+<!doctype html><table id="results"><thead><tr><th>ID</th><th>Name</th></tr></thead>
+<tr><td>007</td><td>  North&nbsp; <b>Wind</b> &amp; Co.  </td></tr>
+<tr><td>008</td><td></td></tr></table>
+<table><tr><td>Ignore this table</td></tr></table>
+HTML
+"$LMSCRIPT" examples/extract-table.lms "$WORK/extract-table.html" '#results > tbody > tr' \
+  'https://example.invalid/search?page=2' >"$WORK/extract-table.json" || fail "extract-table example"
+python3 - "$WORK/extract-table.json" <<'PYTHON' || fail "extract-table JSON"
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as stream:
+    assert json.load(stream) == {
+        "source_url": "https://example.invalid/search?page=2",
+        "rows": [["007", "North Wind & Co."], ["008", ""]],
+    }
+PYTHON
+ok "extract-table example keeps source URL and normalized cells"
+
 want_version="lmhtml $(sed -n 's/^project(lmhtml VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
 [ "$("$HOST" --version)" = "$want_version" ] || fail "--version prints $want_version"
 set +e; "$HOST" --version extra >/dev/null 2>&1; code=$?; set -e

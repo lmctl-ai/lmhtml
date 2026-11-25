@@ -1,0 +1,31 @@
+// lmscript examples/extract-table.lms FILE ROW_SELECTOR SOURCE_URL
+// Reads ordinary tbody rows with td cells into JSON without contacting the source URL.
+require(len(ARGV) == 3, "usage: extract-table.lms FILE ROW_SELECTOR SOURCE_URL");
+p = _lmcode_ cli="lmhtml";
+let doc = html.load(${ARGV[0]});
+let rows = doc.select(${ARGV[1]});
+let cells = str_list();
+let widths = int_list();
+for (i in range(0, rows.len())) {
+  let row = rows.at(i).select("td");
+  widths.add(row.len());
+  for (j in range(0, row.len())) {
+    cells.add(row.at(j).text());
+  }
+}
+$return.cells = cells;
+$return.widths = widths;
+end _lmcode_
+r = run_lmcode(p);
+require(r.ok, "extract-table failed");
+records = [];
+offset = 0;
+for (width in r.result.widths) {
+  cells = [];
+  for (i in range(width)) {
+    push(cells, join(split_regex(trim(r.result.cells[offset + i]), "\\s+"), " "));
+  }
+  offset = offset + width;
+  push(records, cells);
+}
+println(json_stringify({source_url: ARGV[2], rows: records}));
